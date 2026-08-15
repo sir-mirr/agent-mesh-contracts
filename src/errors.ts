@@ -76,11 +76,24 @@ export type ErrorClass = "transient" | "transient-operator" | "wait-approval" | 
 
 export const ERROR_CLASS: Record<number, ErrorClass> = {
   /**
-   * An established owner still holds the identity (§ 8.1), and a contender
-   * never evicts one. Retrying does not help while the incumbent is alive, and
-   * two processes claiming one identity is a deployment fault someone has to
-   * look at — but it does clear on its own when the incumbent goes, so it is
-   * not permanent.
+   * An established socket still holds the identity (§ 8.1) and a contender
+   * never evicts one.
+   *
+   * **Not the same condition as `409 IDENTITY_EXISTS`**, which says the *name*
+   * is taken and to choose another (§ 10.1). This says the name is yours and
+   * something else is currently connected under it — most often your own
+   * previous process, whose socket has not finished closing.
+   *
+   * That race is why this is not permanent. A daemon restarting faster than its
+   * old socket closes would, under `permanent`, give up for good on a condition
+   * that resolves by itself in seconds. The heartbeat bounds the worst case:
+   * a peer that stops answering is dropped within two sweeps (§ 3.1), so an
+   * abandoned socket can no longer hold an identity indefinitely — which is
+   * what made `permanent` defensible before that existed and wrong now.
+   *
+   * `transient-operator` rather than `transient` because the *other* cause —
+   * two deployments genuinely sharing one identity — never resolves on its own,
+   * and a client that only says "retrying" for that misleads whoever reads it.
    */
   [MESH_ERROR.DUPLICATE_IDENTITY]: "transient-operator",
   /**
@@ -107,21 +120,30 @@ export const ERROR_CLASS: Record<number, ErrorClass> = {
 };
 
 /**
- * The class for a code, **failing closed** on one this build does not know.
+ * The class for a code, with the answer for an unknown one stated by the caller.
  *
- * Prefer this to indexing `ERROR_CLASS` directly. A miss returns `undefined`,
- * and every natural way to handle that — `?? "transient"`, or an `if/else`
- * whose else-branch is the retry path — turns an unrecognised code into an
- * unbounded retry. That is not hypothetical: it is what happened when the hub
- * began emitting `-32000` and this table had no entry, and it is the failure
- * the transient/permanent split exists to prevent.
+ * `unknown` is required on purpose. Indexing `ERROR_CLASS` directly leaves an
+ * unrecognised code as `undefined`, and every natural way to absorb that —
+ * `?? "transient"`, or an `if/else` whose else-branch happens to be the retry
+ * path — makes a silent default load-bearing. That is what happened when the
+ * hub began emitting `-32000` and this table had no entry.
  *
- * `permanent` is the safe default because its handling is "stop, quarantine
- * locally, alert" — a code from a newer hub then surfaces to a person once,
- * instead of being retried forever by a client that cannot act on it.
+ * The fix is not a better default here, because there is no default that is
+ * right everywhere:
+ *
+ * - On the **audit outbox**, `"transient"` is the safer miss. A wrong retry is
+ *   bounded by the caller's backoff ceiling and shows up as a rising attempt
+ *   count; a wrong dead-letter has no ceiling and no automatic recovery, and
+ *   during a version skew it would quarantine every event in the window.
+ * - On a **connect or send** path with no outbox behind it, `"permanent"` is
+ *   the safer miss: there is nothing to drain later, and retrying an
+ *   unrecognised refusal is a loop against a condition the client cannot act on.
+ *
+ * So the contract declines to choose and makes each call site say which it is.
+ * The parameter is also greppable, which a `??` buried in an expression is not.
  */
-export function errorClass(code: number): ErrorClass {
-  return ERROR_CLASS[code] ?? "permanent";
+export function errorClass(code: number, unknown: ErrorClass): ErrorClass {
+  return ERROR_CLASS[code] ?? unknown;
 }
 
 /** Why an identity has no usable key. Carried in `-32014` as `data.key_status`. */

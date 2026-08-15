@@ -499,29 +499,34 @@ describe("audit error classification", () => {
     }
   });
 
-  test("errorClass fails closed on a code this build does not know", () => {
-    // `ERROR_CLASS[unknown] ?? "transient"` is the natural thing to write and
-    // the wrong thing: it converts a code from a newer hub into an unbounded
-    // retry. That is precisely what happened to `-32000`.
-    expect(errorClass(-39999)).toBe("permanent");
-    expect(errorClass(MESH_ERROR.AUDIT_BUSY)).toBe("transient");
-    expect(errorClass(MAILBOX_ERROR.SEND_CONFLICT)).toBe("permanent");
+  test("errorClass makes the caller state its answer for an unknown code", () => {
+    // A known code ignores the fallback entirely — the parameter only decides
+    // what happens in the gap, and the gap is what went wrong with `-32000`.
+    expect(errorClass(MESH_ERROR.AUDIT_BUSY, "permanent")).toBe("transient");
+    expect(errorClass(MAILBOX_ERROR.SEND_CONFLICT, "transient")).toBe("permanent");
+
+    // An unknown code returns what the call site asked for, and the two right
+    // answers differ by path: an audit outbox drains a wrong retry, a connect
+    // loop does not.
+    expect(errorClass(-39999, "transient")).toBe("transient");
+    expect(errorClass(-39999, "permanent")).toBe("permanent");
   });
 
   test("the classifications SPEC states outright are the ones shipped", () => {
     // § 8.2 says SEND_CONFLICT is permanent; § 8.9.3's table fixes the rest.
-    expect(errorClass(MAILBOX_ERROR.SEND_CONFLICT)).toBe("permanent");
-    expect(errorClass(MESH_ERROR.AUDIT_EVENT_CONFLICT)).toBe("permanent");
-    expect(errorClass(MESH_ERROR.AUDIT_MISSING_BLOBS)).toBe("transient");
-    expect(errorClass(MESH_ERROR.AUDIT_STORAGE_EXHAUSTED)).toBe("transient-operator");
-    expect(errorClass(MESH_ERROR.KEY_NOT_APPROVED)).toBe("wait-approval");
+    const anyFallback = "permanent" as const;
+    expect(errorClass(MAILBOX_ERROR.SEND_CONFLICT, anyFallback)).toBe("permanent");
+    expect(errorClass(MESH_ERROR.AUDIT_EVENT_CONFLICT, anyFallback)).toBe("permanent");
+    expect(errorClass(MESH_ERROR.AUDIT_MISSING_BLOBS, anyFallback)).toBe("transient");
+    expect(errorClass(MESH_ERROR.AUDIT_STORAGE_EXHAUSTED, anyFallback)).toBe("transient-operator");
+    expect(errorClass(MESH_ERROR.KEY_NOT_APPROVED, anyFallback)).toBe("wait-approval");
   });
 
   test("neither identity error invites a hot retry loop", () => {
     // Both clear, but never because the client tried harder: one when the
     // incumbent disconnects, one when somebody provisions the identity.
-    expect(errorClass(MESH_ERROR.DUPLICATE_IDENTITY)).toBe("transient-operator");
-    expect(errorClass(MESH_ERROR.IDENTITY_NOT_REGISTERED)).toBe("transient-operator");
+    expect(errorClass(MESH_ERROR.DUPLICATE_IDENTITY, "permanent")).toBe("transient-operator");
+    expect(errorClass(MESH_ERROR.IDENTITY_NOT_REGISTERED, "permanent")).toBe("transient-operator");
   });
 
   test("an unclassifiable store failure is permanent, not retried forever", () => {
