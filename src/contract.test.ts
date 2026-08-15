@@ -21,7 +21,11 @@ import {
 import { createHash } from "node:crypto";
 import { Value } from "@sinclair/typebox/value";
 import { keyFingerprint, parsePublicKey, FINGERPRINT_RE, IDENTITY_RE } from "./key";
-import { ProvisionAgentRequest, MeshMessageParams, MeshConnectParams } from "./schema/index";
+import {
+  ProvisionAgentRequest, MeshMessageParams, MeshConnectParams,
+  MeshSendParams, MeshReceiveParams, MeshReceiveResult,
+} from "./schema/index";
+import type { MeshSendIdempotency } from "./mailbox";
 import { KEY_FINGERPRINT_FIXTURES } from "../fixtures/index";
 
 const hex = (bytes: Uint8Array): string =>
@@ -328,5 +332,50 @@ describe("mailbox transport (SPEC § 8.10)", () => {
     expect(MAILBOX_CAPABILITY_DEFAULTS.receive_lease_seconds).toBeGreaterThanOrEqual(60);
     expect(MAILBOX_CAPABILITY_DEFAULTS.send_dedup_window_seconds)
       .toBeGreaterThan(MAILBOX_CAPABILITY_DEFAULTS.receive_lease_seconds);
+  });
+});
+
+/**
+ * The schemas are canonical, so a member the hub accepts and the schema rejects
+ * is a defect in the schema — a consumer validating with it refuses a request
+ * that is valid on the wire, and does so silently.
+ *
+ * This has now happened once (`client_message_id` shipped in the interface and
+ * not in the schema, under `additionalProperties: false`). These assert the
+ * shapes agree rather than trusting that both were remembered.
+ */
+describe("schemas accept every member the protocol defines", () => {
+  test("mesh.send takes an idempotency key", () => {
+    expect(Value.Check(MeshSendParams, {
+      to: "peer", content: "x", client_message_id: "cmid-1",
+    })).toBe(true);
+    expect(Value.Check(MeshSendParams, { to: "peer", content: "x", client_message_id: "" }))
+      .toBe(false);
+    expect(Value.Check(MeshSendParams, {
+      to: "peer", content: "x", client_message_id: "k".repeat(129),
+    })).toBe(false);
+  });
+
+  test("every optional member of MeshSendIdempotency appears in the schema", () => {
+    // The interface and the schema are two statements of one shape. Whenever
+    // they are edited apart, this is what notices.
+    const declared: Array<keyof MeshSendIdempotency> = ["client_message_id"];
+    const inSchema = Object.keys(MeshSendParams.properties);
+    for (const member of declared) expect(inSchema).toContain(member);
+  });
+
+  test("mesh.receive params and result have schemas", () => {
+    expect(Value.Check(MeshReceiveParams, {})).toBe(true);
+    expect(Value.Check(MeshReceiveParams, { limit: 10, ack_ids: ["msg_a"] })).toBe(true);
+    expect(Value.Check(MeshReceiveParams, { ack_ids: "msg_a" })).toBe(false);
+    expect(Value.Check(MeshReceiveResult, {
+      messages: [], remaining: 0, lease_seconds: 300,
+    })).toBe(true);
+  });
+
+  test("a strict schema rejects an unknown member, which is why the above matter", () => {
+    // additionalProperties: false is the right setting and the reason a missing
+    // member is fatal rather than tolerated.
+    expect(Value.Check(MeshSendParams, { to: "peer", content: "x", invented: 1 })).toBe(false);
   });
 });

@@ -40,6 +40,19 @@ const PublicKey = Type.String({
   description: "Raw Ed25519 public key, base64url, 43 characters.",
 });
 
+const MeshMessageBody = Type.Object(
+  {
+    id: Type.String(),
+    from: Identity,
+    to: Identity,
+    sent_by: Type.Union([Identity, Type.Null()]),
+    content: Type.String(),
+    reply_to: Type.Union([Type.String(), Type.Null()]),
+    ts: Type.String(),
+  },
+  { additionalProperties: true },
+);
+
 /**
  * `POST /api/v1/agents` (SPEC § 10.1).
  *
@@ -143,10 +156,47 @@ export const MeshSendParams = Type.Object(
      * themselves.
      */
     from: Type.Optional(Identity),
+    /**
+     * Idempotency key, unique per sending identity (§ 8.2).
+     *
+     * Omitted from this schema when the transport shipped, which made the
+     * schema reject a request the hub accepts. `additionalProperties: false` is
+     * right for catching typos and unforgiving of a field added in one place
+     * and not the other — so a member added to the protocol has to arrive here
+     * in the same change.
+     */
+    client_message_id: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
   },
   { additionalProperties: false, $id: "agent-mesh/MeshSendParams" },
 );
 export type MeshSendParams = Static<typeof MeshSendParams>;
+
+/**
+ * `mesh.receive` params (SPEC § 8.10.1).
+ *
+ * `ack_ids` settles the previous batch as part of fetching the next. Ids the
+ * caller does not hold are ignored by the hub rather than refused, so the
+ * schema does not constrain their shape beyond being strings.
+ */
+export const MeshReceiveParams = Type.Object(
+  {
+    limit: Type.Optional(Type.Integer({ minimum: 1 })),
+    ack_ids: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+  },
+  { additionalProperties: false, $id: "agent-mesh/MeshReceiveParams" },
+);
+export type MeshReceiveParams = Static<typeof MeshReceiveParams>;
+
+/** `mesh.receive` result (SPEC § 8.10.1). */
+export const MeshReceiveResult = Type.Object(
+  {
+    messages: Type.Array(MeshMessageBody),
+    remaining: Type.Integer({ minimum: 0 }),
+    lease_seconds: Type.Integer({ minimum: 1 }),
+  },
+  { additionalProperties: true, $id: "agent-mesh/MeshReceiveResult" },
+);
+export type MeshReceiveResult = Static<typeof MeshReceiveResult>;
 
 /**
  * `mesh.message` (SPEC § 8.8.1).
@@ -157,15 +207,7 @@ export type MeshSendParams = Static<typeof MeshSendParams>;
  * authenticated origin is wrong whenever the two differ.
  */
 export const MeshMessageParams = Type.Object(
-  {
-    id: Type.String(),
-    from: Identity,
-    to: Identity,
-    sent_by: Type.Union([Identity, Type.Null()]),
-    content: Type.String(),
-    reply_to: Type.Union([Type.String(), Type.Null()]),
-    ts: Type.String(),
-  },
+  { ...MeshMessageBody.properties },
   { additionalProperties: true, $id: "agent-mesh/MeshMessageParams" },
 );
 export type MeshMessageParams = Static<typeof MeshMessageParams>;
