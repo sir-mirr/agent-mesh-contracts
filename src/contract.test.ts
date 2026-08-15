@@ -17,6 +17,11 @@ import {
   requestSignaturePreimage,
   uploadSignaturePreimage,
 } from "./signature";
+import { createHash } from "node:crypto";
+import { Value } from "@sinclair/typebox/value";
+import { keyFingerprint, parsePublicKey, FINGERPRINT_RE, IDENTITY_RE } from "./key";
+import { ProvisionAgentRequest, MeshMessageParams, MeshConnectParams } from "./schema/index";
+import { KEY_FINGERPRINT_FIXTURES } from "../fixtures/index";
 
 const hex = (bytes: Uint8Array): string =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -193,5 +198,112 @@ describe("attachment metadata", () => {
     expect(extractAttachmentsMeta("{ not json")).toBeNull();
     expect(extractAttachmentsMeta({ attachments: [] })).toBeNull();
     expect(extractAttachmentsMeta(42)).toBeNull();
+  });
+});
+
+describe("key fingerprints (SPEC § 10.2)", () => {
+  test("match the fixtures byte for byte", () => {
+    for (const f of KEY_FINGERPRINT_FIXTURES) {
+      expect(keyFingerprint(f.publicKey)).toBe(f.fingerprint);
+    }
+  });
+
+  test("the wire form and the raw bytes agree", () => {
+    // The whole point of taking both: a caller holding one must not get a
+    // different answer from a caller holding the other.
+    for (const f of KEY_FINGERPRINT_FIXTURES) {
+      expect(keyFingerprint(parsePublicKey(f.publicKey))).toBe(f.fingerprint);
+    }
+  });
+
+  test("hashes the key bytes, not the text that encodes them", () => {
+    // The failure this guards is silent: hashing the base64url string produces
+    // a perfectly well-formed fingerprint of the wrong thing, and the operator
+    // comparing two of them reads the mismatch as a wrong key.
+    const f = KEY_FINGERPRINT_FIXTURES[0]!;
+    const overTheText = `sha256:${Buffer.from(
+      createHash("sha256").update(f.publicKey, "utf8").digest(),
+    ).toString("base64url")}`;
+    expect(overTheText).not.toBe(f.fingerprint);
+  });
+
+  test("distinct keys get distinct fingerprints", () => {
+    const seen = new Set(KEY_FINGERPRINT_FIXTURES.map((f) => f.fingerprint));
+    expect(seen.size).toBe(KEY_FINGERPRINT_FIXTURES.length);
+  });
+
+  test("rejects anything that is not a 32-byte key", () => {
+    expect(() => parsePublicKey("too-short")).toThrow();
+    expect(() => parsePublicKey("A".repeat(44))).toThrow();
+    // Right length, wrong alphabet: + and / belong to base64, not base64url.
+    expect(() => parsePublicKey(`${"+".repeat(1)}${"A".repeat(42)}`)).toThrow();
+    expect(() => keyFingerprint(new Uint8Array(31))).toThrow();
+  });
+
+  test("produced fingerprints match the pattern implementations check against", () => {
+    for (const f of KEY_FINGERPRINT_FIXTURES) {
+      expect(FINGERPRINT_RE.test(f.fingerprint)).toBe(true);
+    }
+  });
+});
+
+describe("identity format (SPEC § 10.1)", () => {
+  test("accepts the baseline identities and the logins people actually have", () => {
+    for (const id of ["http-server", "self-reminder", "prod-codex1", "MixedCase", "0day", "a"]) {
+      expect(IDENTITY_RE.test(id)).toBe(true);
+    }
+  });
+
+  test("still rejects what it always did", () => {
+    for (const id of ["", "-leading", "has_underscore", "has space", "has.dot", "@at"]) {
+      expect(IDENTITY_RE.test(id)).toBe(false);
+    }
+  });
+
+  test("is case-sensitive, which is the part that merges participants if missed", () => {
+    expect("Codex").not.toBe("codex");
+    expect(IDENTITY_RE.test("Codex") && IDENTITY_RE.test("codex")).toBe(true);
+  });
+});
+
+describe("schemas (SPEC § 10.1)", () => {
+  test("accept a well-formed provisioning request", () => {
+    expect(Value.Check(ProvisionAgentRequest, {
+      identity: "prod-codex1", type: "ai-codex",
+      public_key: KEY_FINGERPRINT_FIXTURES[0]!.publicKey,
+    })).toBe(true);
+  });
+
+  test("do not constrain `type` to the seeded set", () => {
+    // § 10.3: the registry is data. A deployment carries types this package has
+    // never heard of, and freezing them here would reintroduce the enum.
+    expect(Value.Check(ProvisionAgentRequest, {
+      identity: "invented", type: "ai-something-unreleased",
+    })).toBe(true);
+    expect(Value.Check(ProvisionAgentRequest, { identity: "no-type", type: "" })).toBe(false);
+  });
+
+  test("reject an identity the format rule rejects", () => {
+    expect(Value.Check(ProvisionAgentRequest, { identity: "-leading", type: "service" })).toBe(false);
+    expect(Value.Check(ProvisionAgentRequest, { identity: "MixedCase", type: "human" })).toBe(true);
+  });
+
+  test("reject a public key that is not a raw Ed25519 key", () => {
+    expect(Value.Check(ProvisionAgentRequest, {
+      identity: "a", type: "service", public_key: "short",
+    })).toBe(false);
+  });
+
+  test("mesh.message carries sent_by, nullable", () => {
+    const base = { id: "m", from: "a", to: "b", content: "x", reply_to: null, ts: "t" };
+    expect(Value.Check(MeshMessageParams, { ...base, sent_by: "http-server" })).toBe(true);
+    expect(Value.Check(MeshMessageParams, { ...base, sent_by: null })).toBe(true);
+    expect(Value.Check(MeshMessageParams, base)).toBe(false);
+  });
+
+  test("mesh.connect stays open to unknown params, as § 8.1 requires", () => {
+    expect(Value.Check(MeshConnectParams, {
+      identity: "old-client", type: "ai-claude", description: "carried over",
+    })).toBe(true);
   });
 });

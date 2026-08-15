@@ -134,3 +134,43 @@ export const UPLOAD_AUTHORIZATION_FIXTURES: readonly UploadAuthorizationFixture[
     header: 'AgentMeshSig kid="fp1", nonce="upload-nonce-1", sig="c2ln"',
   },
 ];
+
+/**
+ * Key fingerprints (SPEC § 10.2).
+ *
+ * The fingerprint is what an operator compares between a lane's startup log and
+ * the approval surface, so the two implementations producing it must agree
+ * exactly. These were computed independently of `keyFingerprint` — a fixture
+ * that calls the encoder it checks proves only that the encoder is
+ * deterministic.
+ *
+ * They pin the part that is easy to get wrong and impossible to notice: the
+ * digest is over the **raw 32 key bytes**, not over the base64url text. Hashing
+ * the encoding produces a perfectly good fingerprint of the wrong thing, and
+ * the two disagree in silence.
+ */
+export interface KeyFingerprintFixture {
+  name: string;
+  /** Raw Ed25519 public key, base64url, unpadded. */
+  publicKey: string;
+  /** Expected `sha256:<base64url>` fingerprint. */
+  fingerprint: string;
+}
+
+export const KEY_FINGERPRINT_FIXTURES: readonly KeyFingerprintFixture[] = [
+  {
+    name: "all-zero key",
+    publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    fingerprint: "sha256:Zmh6rfhivXdsj8GLjp-OIAiXFIVu4jOzkCpZHQ1fKSU",
+  },
+  {
+    name: "all-0xff key — exercises the base64url alphabet, - and _ rather than + and /",
+    publicKey: "__________________________________________8",
+    fingerprint: "sha256:r5YTdg9yY1-9tEpaCmPDnxKvMPlQpu5clxvhiOicQFE",
+  },
+  {
+    name: "0..31 ramp",
+    publicKey: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    fingerprint: "sha256:Yw3NKWbEM2aRElRIu7JbT_QSpJxzLbLIq8G4WBvXEN0",
+  },
+];

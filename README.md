@@ -103,3 +103,38 @@ Four version numbers exist and are deliberately independent:
 ## License
 
 MIT © 2026 Sir-Mirr
+
+## `@agent-mesh/contracts/schema`
+
+Runtime validation schemas, behind a subpath so the index stays free of the
+TypeBox import — most consumers encode and decode without validating, and should
+not carry a validator to do it.
+
+```ts
+import { Value } from "@sinclair/typebox/value";
+import { ProvisionAgentRequest } from "@agent-mesh/contracts/schema";
+
+Value.Check(ProvisionAgentRequest, body);
+```
+
+TypeBox because a schema **is** a JSON Schema object at runtime, so
+`JSON.stringify` hands a non-TypeScript implementation the same contract with
+nothing compiled. This package ships source and has no build step; a library
+needing a generation pass to emit JSON Schema would have introduced one.
+
+The schemas validate **shape, not policy**. Whether a `type` exists, whether an
+identity is taken, whether a key is approved — the hub answers those against its
+own state. In particular `type` is a plain non-empty string and deliberately not
+an enum: it is resolved against the `agent_types` table at runtime, and freezing
+the seeded set here would reintroduce what removing the hardcoded enum fixed.
+
+## Key fingerprints
+
+`keyFingerprint()` produces `sha256:<base64url>` over the **raw 32 key bytes**.
+
+This one is worth taking from here rather than reimplementing. A fingerprint is
+what an operator compares between a lane's startup log and the approval surface,
+and hashing the base64url text instead of the bytes it encodes produces a
+perfectly well-formed fingerprint of the wrong thing. The two disagree in
+silence, and the operator reads the mismatch as a wrong key. `KEY_FINGERPRINT_FIXTURES`
+pins it.

@@ -1,7 +1,7 @@
 {
   "name": "@agent-mesh/contracts",
-  "version": "0.3.0",
-  "description": "Executable wire contract for Agent Mesh — types, constants and cross-implementation fixtures.",
+  "version": "0.4.0",
+  "description": "Executable wire contract for Agent Mesh \u2014 types, constants and cross-implementation fixtures.",
   "license": "MIT",
   "type": "module",
   "agentMeshSpec": "0.2",
@@ -11,9 +11,15 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./fixtures": "./fixtures/index.ts"
+    "./fixtures": "./fixtures/index.ts",
+    "./schema": "./src/schema/index.ts"
   },
-  "files": ["src", "fixtures", "README.md", "LICENSE"],
+  "files": [
+    "src",
+    "fixtures",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --pretty false",
     "test": "bun test"
@@ -21,5 +27,8 @@
   "devDependencies": {
     "@types/bun": "^1.1.13",
     "typescript": "7.0.2"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.52"
   }
 }
