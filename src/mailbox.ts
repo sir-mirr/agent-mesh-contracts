@@ -1,0 +1,88 @@
+/**
+ * The socketless transport (SPEC § 8.10).
+ *
+ * A participant driven by an application rather than a daemon is awake only
+ * while it is answering. It cannot hold a socket and has nowhere to be pushed
+ * to, so it sends when awake and drains its inbox when it next is.
+ *
+ * Two contracts make that safe, and both exist because a turn can end between
+ * any two things.
+ *
+ * **Delivery is at-least-once, acknowledged on the next call.** A destructive
+ * read loses whatever the caller did not survive to persist; a separate
+ * acknowledgement costs a round trip and opens a window in which a message
+ * arriving between read and ack is cleared by an ack that predates it. Carrying
+ * the previous batch's ids on the next fetch has neither: one call, one
+ * transaction, and anything unacknowledged comes back.
+ *
+ * The cost is duplicates, which is why `id` is stable and clients deduplicate
+ * on it. That is the right way round — a duplicate is visible and cheap, a loss
+ * is neither.
+ *
+ * **Sends are idempotent by `client_message_id`.** The hub can commit a message
+ * and then fail to deliver the response, at which point a retry is
+ * indistinguishable from a new send. Only the client can tell them apart, so
+ * only the client can supply the key.
+ */
+
+/** What a hub advertises about its mailbox surface, in `mesh.connect`. */
+export interface MailboxCapabilities {
+  /** Protocol version for the transport: methods, params, error contract. */
+  version: number;
+  /** Largest `limit` accepted by `mesh.receive`. */
+  max_receive_batch: number;
+  /**
+   * How long a delivered-but-unacknowledged batch stays invisible before it is
+   * offered again.
+   *
+   * The tension is a turn that dies mid-batch. Too short and a slow caller is
+   * handed the same messages while still working on them; too long and a caller
+   * that crashed waits that long before anything is re-offered. Both are
+   * survivable because ids are stable, so the setting is a comfort question
+   * rather than a correctness one.
+   */
+  receive_lease_seconds: number;
+  /** How long a `client_message_id` is remembered for deduplication. */
+  send_dedup_window_seconds: number;
+}
+
+export const MAILBOX_CAPABILITY_DEFAULTS: MailboxCapabilities = {
+  version: 1,
+  max_receive_batch: 200,
+  receive_lease_seconds: 300,
+  // Comfortably longer than any retry a client should still be attempting, and
+  // short enough that the table does not become a permanent record of every
+  // message ever sent.
+  send_dedup_window_seconds: 86_400,
+};
+
+/** `mesh.receive` params (SPEC § 8.10.1). */
+export interface MeshReceiveParams {
+  limit?: number;
+  /**
+   * Ids from the previous batch, acknowledged as part of this call.
+   *
+   * Ids the caller does not hold are ignored rather than refused: a caller
+   * retrying an ambiguous receive re-sends the same acknowledgements, and
+   * failing that retry would strand the batch it is trying to settle.
+   */
+  ack_ids?: string[];
+}
+
+/** `mesh.send` params gain one optional member (SPEC § 8.2). */
+export interface MeshSendIdempotency {
+  /**
+   * Caller-chosen, unique per sending identity.
+   *
+   * Retrying with the same key and the same message returns the original
+   * result. Reusing it for a *different* message is a permanent error — the key
+   * is how the hub tells a retry from a new send, so a key that means two
+   * things means neither.
+   */
+  client_message_id?: string;
+}
+
+export const MAILBOX_ERROR = {
+  /** Same `client_message_id`, different message. Permanent — do not retry. */
+  SEND_CONFLICT: -32015,
+} as const;

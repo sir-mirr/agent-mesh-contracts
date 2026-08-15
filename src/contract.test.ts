@@ -11,6 +11,7 @@ import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
 import { ERROR_CLASS, MESH_ERROR, RETIRED_ERROR_CODES } from "./errors";
+import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR } from "./mailbox";
 import {
   formatUploadAuthorization,
   parseUploadAuthorization,
@@ -305,5 +306,27 @@ describe("schemas (SPEC § 10.1)", () => {
     expect(Value.Check(MeshConnectParams, {
       identity: "old-client", type: "ai-claude", description: "carried over",
     })).toBe(true);
+  });
+});
+
+describe("mailbox transport (SPEC § 8.10)", () => {
+  test("-32015 is not a retired code being reused", () => {
+    // § 8.9.3 retires -32042 and forbids reuse: an old client meeting a new hub
+    // must never read one meaning as another.
+    expect(RETIRED_ERROR_CODES).not.toContain(MAILBOX_ERROR.SEND_CONFLICT);
+  });
+
+  test("-32015 does not collide with an existing code", () => {
+    const existing = Object.values(MESH_ERROR);
+    expect(existing).not.toContain(MAILBOX_ERROR.SEND_CONFLICT);
+  });
+
+  test("the lease outlives a plausible turn, and the dedup window outlives retries", () => {
+    // A lease shorter than a turn hands a caller messages it is still working
+    // on; a dedup window shorter than a retry schedule turns a retry into a
+    // duplicate send. Both bounds are the point of the numbers.
+    expect(MAILBOX_CAPABILITY_DEFAULTS.receive_lease_seconds).toBeGreaterThanOrEqual(60);
+    expect(MAILBOX_CAPABILITY_DEFAULTS.send_dedup_window_seconds)
+      .toBeGreaterThan(MAILBOX_CAPABILITY_DEFAULTS.receive_lease_seconds);
   });
 });

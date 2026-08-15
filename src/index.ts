@@ -8,6 +8,7 @@ export * from "./errors";
 export * from "./history";
 export * from "./hub";
 export * from "./key";
+export * from "./mailbox";
 export * from "./ownership";
 export * from "./registry";
 export * from "./signature";
