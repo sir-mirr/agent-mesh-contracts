@@ -7,6 +7,8 @@
  * material over a hiccup.
  */
 
+import { MAILBOX_ERROR } from "./mailbox";
+
 export const MESH_ERROR = {
   /** An established owner still holds this identity; the incumbent is never evicted. */
   DUPLICATE_IDENTITY: -32010,
@@ -73,6 +75,20 @@ export const RETIRED_ERROR_CODES = [-32042] as const;
 export type ErrorClass = "transient" | "transient-operator" | "wait-approval" | "permanent";
 
 export const ERROR_CLASS: Record<number, ErrorClass> = {
+  /**
+   * An established owner still holds the identity (§ 8.1), and a contender
+   * never evicts one. Retrying does not help while the incumbent is alive, and
+   * two processes claiming one identity is a deployment fault someone has to
+   * look at — but it does clear on its own when the incumbent goes, so it is
+   * not permanent.
+   */
+  [MESH_ERROR.DUPLICATE_IDENTITY]: "transient-operator",
+  /**
+   * Nothing has provisioned this identity (§ 10.1), or it was torn down. A
+   * client cannot fix either by trying again; both clear when someone acts.
+   * `data.code` distinguishes the deleted case, which never clears at all.
+   */
+  [MESH_ERROR.IDENTITY_NOT_REGISTERED]: "transient-operator",
   [MESH_ERROR.SIGNATURE_INVALID]: "permanent",
   [MESH_ERROR.NOT_ENTITLED]: "permanent",
   [MESH_ERROR.KEY_NOT_APPROVED]: "wait-approval",
@@ -82,7 +98,31 @@ export const ERROR_CLASS: Record<number, ErrorClass> = {
   [MESH_ERROR.AUDIT_STORAGE_EXHAUSTED]: "transient-operator",
   [MESH_ERROR.INVALID_PARAMS]: "permanent",
   [MESH_ERROR.SERVER_ERROR]: "permanent",
+  /**
+   * One `client_message_id`, two different messages (§ 8.2, which states this
+   * classification outright). The key already means something else; a retry
+   * carries the same contradiction and is refused identically.
+   */
+  [MAILBOX_ERROR.SEND_CONFLICT]: "permanent",
 };
+
+/**
+ * The class for a code, **failing closed** on one this build does not know.
+ *
+ * Prefer this to indexing `ERROR_CLASS` directly. A miss returns `undefined`,
+ * and every natural way to handle that — `?? "transient"`, or an `if/else`
+ * whose else-branch is the retry path — turns an unrecognised code into an
+ * unbounded retry. That is not hypothetical: it is what happened when the hub
+ * began emitting `-32000` and this table had no entry, and it is the failure
+ * the transient/permanent split exists to prevent.
+ *
+ * `permanent` is the safe default because its handling is "stop, quarantine
+ * locally, alert" — a code from a newer hub then surfaces to a person once,
+ * instead of being retried forever by a client that cannot act on it.
+ */
+export function errorClass(code: number): ErrorClass {
+  return ERROR_CLASS[code] ?? "permanent";
+}
 
 /** Why an identity has no usable key. Carried in `-32014` as `data.key_status`. */
 export type KeyStatus = "missing" | "pending" | "denied" | "revoked";

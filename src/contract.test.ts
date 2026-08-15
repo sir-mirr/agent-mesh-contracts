@@ -12,7 +12,7 @@ import {
 import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
-import { ERROR_CLASS, ERROR_DATA_CODE, MESH_ERROR, RETIRED_ERROR_CODES, errorDataCode } from "./errors";
+import { ERROR_CLASS, ERROR_DATA_CODE, MESH_ERROR, RETIRED_ERROR_CODES, errorClass, errorDataCode } from "./errors";
 import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR, PROVISION_ERROR } from "./mailbox";
 import { nextIntervalFire, parseDuration, parseScheduleSpec } from "./schedule";
 import {
@@ -162,14 +162,23 @@ describe("event id", () => {
 
 describe("error codes", () => {
   test("every classified code is one that exists", () => {
-    const known = new Set<number>(Object.values(MESH_ERROR));
+    // Both tables. Scoping this to `MESH_ERROR` made it fail the moment
+    // `-32015` — which lives in `MAILBOX_ERROR` — was finally classified, and
+    // the same narrowness is why `-32015` went unclassified for so long.
+    const known = new Set<number>([
+      ...Object.values(MESH_ERROR),
+      ...Object.values(MAILBOX_ERROR),
+    ] as number[]);
     for (const code of Object.keys(ERROR_CLASS)) {
-      expect(known.has(Number(code))).toBe(true);
+      expect(known.has(Number(code)), `classified ${code}`).toBe(true);
     }
   });
 
   test("retired codes are not reused", () => {
-    const live = new Set<number>(Object.values(MESH_ERROR));
+    const live = new Set<number>([
+      ...Object.values(MESH_ERROR),
+      ...Object.values(MAILBOX_ERROR),
+    ] as number[]);
     for (const code of RETIRED_ERROR_CODES) {
       expect(live.has(code)).toBe(false);
     }
@@ -468,20 +477,51 @@ describe("reminder schedules", () => {
 });
 
 describe("audit error classification", () => {
-  test("every audit code § 8.9.3 lists carries a class", () => {
-    // A code with no entry falls through `ERROR_CLASS[code]` as `undefined`,
-    // and a client branching on the class treats it as neither — which in
-    // practice means whichever branch its `else` happens to be.
-    for (const code of [
-      MESH_ERROR.AUDIT_MISSING_BLOBS,
-      MESH_ERROR.AUDIT_EVENT_CONFLICT,
-      MESH_ERROR.AUDIT_BUSY,
-      MESH_ERROR.AUDIT_STORAGE_EXHAUSTED,
-      MESH_ERROR.SERVER_ERROR,
-      MESH_ERROR.INVALID_PARAMS,
-    ]) {
-      expect(ERROR_CLASS[code], `class for ${code}`).toBeDefined();
+  test("every code either table defines carries a class", () => {
+    // Deliberately not a list of audit codes. The first version of this test
+    // enumerated § 8.9.3's codes, passed, and left `-32010`, `-32011` and
+    // `-32015` unclassified — the client found them. An enumerated test only
+    // ever checks what its author already thought of, so this derives the set
+    // from the tables themselves.
+    const declared = [
+      ...Object.values(MESH_ERROR),
+      ...Object.values(MAILBOX_ERROR),
+    ] as number[];
+    expect(declared.length).toBeGreaterThan(10);
+
+    const unclassified = declared.filter((code) => !Object.hasOwn(ERROR_CLASS, code));
+    expect(unclassified).toEqual([]);
+  });
+
+  test("a retired code is not quietly given a class", () => {
+    for (const code of RETIRED_ERROR_CODES) {
+      expect(Object.hasOwn(ERROR_CLASS, code), `retired ${code}`).toBe(false);
     }
+  });
+
+  test("errorClass fails closed on a code this build does not know", () => {
+    // `ERROR_CLASS[unknown] ?? "transient"` is the natural thing to write and
+    // the wrong thing: it converts a code from a newer hub into an unbounded
+    // retry. That is precisely what happened to `-32000`.
+    expect(errorClass(-39999)).toBe("permanent");
+    expect(errorClass(MESH_ERROR.AUDIT_BUSY)).toBe("transient");
+    expect(errorClass(MAILBOX_ERROR.SEND_CONFLICT)).toBe("permanent");
+  });
+
+  test("the classifications SPEC states outright are the ones shipped", () => {
+    // § 8.2 says SEND_CONFLICT is permanent; § 8.9.3's table fixes the rest.
+    expect(errorClass(MAILBOX_ERROR.SEND_CONFLICT)).toBe("permanent");
+    expect(errorClass(MESH_ERROR.AUDIT_EVENT_CONFLICT)).toBe("permanent");
+    expect(errorClass(MESH_ERROR.AUDIT_MISSING_BLOBS)).toBe("transient");
+    expect(errorClass(MESH_ERROR.AUDIT_STORAGE_EXHAUSTED)).toBe("transient-operator");
+    expect(errorClass(MESH_ERROR.KEY_NOT_APPROVED)).toBe("wait-approval");
+  });
+
+  test("neither identity error invites a hot retry loop", () => {
+    // Both clear, but never because the client tried harder: one when the
+    // incumbent disconnects, one when somebody provisions the identity.
+    expect(errorClass(MESH_ERROR.DUPLICATE_IDENTITY)).toBe("transient-operator");
+    expect(errorClass(MESH_ERROR.IDENTITY_NOT_REGISTERED)).toBe("transient-operator");
   });
 
   test("an unclassifiable store failure is permanent, not retried forever", () => {
