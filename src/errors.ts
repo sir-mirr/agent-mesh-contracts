@@ -228,6 +228,15 @@ export const ERROR_DATA_CODE = {
    * not classify (§ 8.9.3). Permanent — see `ERROR_CLASS`.
    */
   AUDIT_APPEND_FAILED: "AUDIT_APPEND_FAILED",
+  /**
+   * `403` on the hub's `DELETE /api/agents/{identity}` (§ 9.3).
+   *
+   * Not a JSON-RPC error: teardown is a REST route, and this is the `code` in
+   * its refusal body. It is here because the vocabulary is what a client
+   * switches on, and a caller that has to string-match the prose instead is
+   * one prose edit away from breaking.
+   */
+  TEARDOWN_REQUIRES_ADMIN: "TEARDOWN_REQUIRES_ADMIN",
 } as const;
 
 export type ErrorDataCode = (typeof ERROR_DATA_CODE)[keyof typeof ERROR_DATA_CODE];
