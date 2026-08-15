@@ -61,6 +61,39 @@ export type MeshErrorCode = (typeof MESH_ERROR)[keyof typeof MESH_ERROR];
 export const RETIRED_ERROR_CODES = [-32042] as const;
 
 /**
+ * The band this contract allocates from (SPEC § 8).
+ *
+ * JSON-RPC 2.0 leaves `-32099 … -32000` for implementation-defined server
+ * errors. Agent Mesh takes the lower half and never assigns above it, so a
+ * protocol layered beside the mesh — a lane's driver-to-adapter control plane,
+ * a deployment's own tooling — can use `-32099 … -32050` and stay safe from
+ * anything released here.
+ *
+ * The hazard this closes is not a clash that fails loudly. Both halves of a
+ * lane speak JSON-RPC and the vocabularies meet inside one process; an error
+ * object is an error object, so a shared number does not error, it
+ * **reclassifies**. `-32043` is `AUDIT_BUSY` and therefore retried without an
+ * attempt ceiling — a neighbour that had assigned `-32043` to a permanently
+ * malformed payload would see that payload retried forever the first time the
+ * two paths were joined.
+ */
+export const MESH_ERROR_RANGE = { min: -32049, max: -32000 } as const;
+
+/**
+ * JSON-RPC 2.0's own predefined codes, which this contract **reuses rather than
+ * allocates**. `INVALID_PARAMS` appears in `MESH_ERROR` for convenience and is
+ * `-32602` because JSON-RPC says so, not because the mesh assigned it — so it
+ * sits outside the reserved band and cannot collide with anyone, since every
+ * JSON-RPC implementation already means the same thing by it.
+ */
+export const JSON_RPC_PREDEFINED = [-32700, -32600, -32601, -32602, -32603] as const;
+
+/** Whether a code falls in the band this contract allocates from. */
+export function isMeshErrorCode(code: number): boolean {
+  return Number.isInteger(code) && code >= MESH_ERROR_RANGE.min && code <= MESH_ERROR_RANGE.max;
+}
+
+/**
  * How a client must treat a failure.
  *
  * - `transient` — retry with backoff and jitter, no attempt ceiling.

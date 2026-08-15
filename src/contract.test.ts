@@ -12,7 +12,7 @@ import {
 import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
-import { ERROR_CLASS, ERROR_DATA_CODE, MESH_ERROR, RETIRED_ERROR_CODES, errorClass, errorDataCode } from "./errors";
+import { ERROR_CLASS, ERROR_DATA_CODE, JSON_RPC_PREDEFINED, MESH_ERROR, MESH_ERROR_RANGE, RETIRED_ERROR_CODES, errorClass, errorDataCode, isMeshErrorCode } from "./errors";
 import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR, PROVISION_ERROR } from "./mailbox";
 import { nextIntervalFire, parseDuration, parseScheduleSpec } from "./schedule";
 import {
@@ -569,5 +569,50 @@ describe("error data codes", () => {
     expect(errorDataCode(null)).toBeNull();
     // A prototype member is not a code. `in` alone would have said otherwise.
     expect(errorDataCode({ data: { code: "toString" } })).toBeNull();
+  });
+});
+
+describe("error code allocation", () => {
+  test("every code this contract defines is inside its reserved band", () => {
+    // Derived, not listed. A code added outside the band would not fail
+    // anywhere at runtime — it would silently overlap whatever a neighbouring
+    // protocol had put there, and overlap reclassifies rather than errors.
+    // JSON-RPC's own codes are excluded: this contract reuses those rather
+    // than allocating them, and every JSON-RPC implementation already agrees
+    // on what they mean.
+    const predefined = new Set<number>(JSON_RPC_PREDEFINED);
+    const declared = ([
+      ...Object.values(MESH_ERROR),
+      ...Object.values(MAILBOX_ERROR),
+      ...RETIRED_ERROR_CODES,
+    ] as number[]).filter((code) => !predefined.has(code));
+    expect(declared.length).toBeGreaterThan(10);
+
+    const outside = declared.filter((code) => !isMeshErrorCode(code));
+    expect(outside).toEqual([]);
+  });
+
+  test("the band is the lower half of JSON-RPC's implementation-defined range", () => {
+    // JSON-RPC 2.0 leaves -32099..-32000. Taking all of it would leave a lane's
+    // own control plane nowhere safe to sit.
+    expect(MESH_ERROR_RANGE).toEqual({ min: -32049, max: -32000 });
+    expect(isMeshErrorCode(-32000)).toBe(true);
+    expect(isMeshErrorCode(-32049)).toBe(true);
+    expect(isMeshErrorCode(-32050)).toBe(false);
+    expect(isMeshErrorCode(-32099)).toBe(false);
+    // JSON-RPC's own predefined codes are outside the implementation range.
+    expect(isMeshErrorCode(-32600)).toBe(false);
+    expect(isMeshErrorCode(-32602)).toBe(false);
+  });
+
+  test("room is left to grow without reaching a neighbour", () => {
+    const predefined = new Set<number>(JSON_RPC_PREDEFINED);
+    const used = new Set<number>(([
+      ...Object.values(MESH_ERROR),
+      ...Object.values(MAILBOX_ERROR),
+      ...RETIRED_ERROR_CODES,
+    ] as number[]).filter((code) => !predefined.has(code)));
+    const band = MESH_ERROR_RANGE.max - MESH_ERROR_RANGE.min + 1;
+    expect(used.size).toBeLessThan(band / 2);
   });
 });
