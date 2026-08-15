@@ -12,7 +12,7 @@ import {
 import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
-import { ERROR_CLASS, MESH_ERROR, RETIRED_ERROR_CODES } from "./errors";
+import { ERROR_CLASS, ERROR_DATA_CODE, MESH_ERROR, RETIRED_ERROR_CODES, errorDataCode } from "./errors";
 import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR, PROVISION_ERROR } from "./mailbox";
 import { nextIntervalFire, parseDuration, parseScheduleSpec } from "./schedule";
 import {
@@ -496,5 +496,33 @@ describe("audit error classification", () => {
     // Both tell a client to back off; only one clears on its own.
     expect(MESH_ERROR.AUDIT_BUSY).not.toBe(MESH_ERROR.AUDIT_STORAGE_EXHAUSTED);
     expect(ERROR_CLASS[MESH_ERROR.AUDIT_STORAGE_EXHAUSTED]).toBe("transient-operator");
+  });
+});
+
+describe("error data codes", () => {
+  test("the discriminator is not a second spelling of the numeric code", () => {
+    // `-32000` is returned by four unrelated paths. A constant named
+    // `AUDIT_APPEND_FAILED` bound to that number would make a `mesh.send` that
+    // could not persist read as an audit failure.
+    expect(Object.keys(ERROR_DATA_CODE)).toContain("AUDIT_APPEND_FAILED");
+    expect(MESH_ERROR).not.toHaveProperty("AUDIT_APPEND_FAILED");
+  });
+
+  test("every value equals its key, so neither side can drift", () => {
+    const entries: Array<[string, string]> = Object.entries(ERROR_DATA_CODE);
+    expect(entries.length).toBeGreaterThan(5);
+    for (const [key, value] of entries) {
+      expect(value).toBe(key);
+    }
+  });
+
+  test("errorDataCode narrows only what it recognises", () => {
+    expect(errorDataCode({ data: { code: "AUDIT_BUSY" } })).toBe("AUDIT_BUSY");
+    expect(errorDataCode({ data: { code: "SOMETHING_ELSE" } })).toBeNull();
+    expect(errorDataCode({ data: {} })).toBeNull();
+    expect(errorDataCode({})).toBeNull();
+    expect(errorDataCode(null)).toBeNull();
+    // A prototype member is not a code. `in` alone would have said otherwise.
+    expect(errorDataCode({ data: { code: "toString" } })).toBeNull();
   });
 });

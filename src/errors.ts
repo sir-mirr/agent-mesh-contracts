@@ -88,3 +88,67 @@ export const ERROR_CLASS: Record<number, ErrorClass> = {
 export type KeyStatus = "missing" | "pending" | "denied" | "revoked";
 
 export const KEY_STATUSES: readonly KeyStatus[] = ["missing", "pending", "denied", "revoked"];
+
+/**
+ * The discriminator in `error.data.code`.
+ *
+ * **Not a second spelling of the JSON-RPC code.** Several conditions share one
+ * numeric code — `-32000` is returned by the dispatcher's last-resort guard, by
+ * a `mesh.send` that could not persist, by a reminder store failure, and by an
+ * audit append that failed for an unclassified reason. The number carries the
+ * retry policy (see `ERROR_CLASS`); this string carries *which* condition it
+ * was.
+ *
+ * So a client uses both, for different questions:
+ *
+ * ```ts
+ * if (ERROR_CLASS[err.code] === "permanent") drop(event)   // what to do
+ * if (err.data?.code === "AUDIT_APPEND_FAILED") ...        // what happened
+ * ```
+ *
+ * Branching on the number alone cannot tell an audit failure from a routing
+ * one; branching on the string alone loses the retry policy. Aliasing a name
+ * like `AUDIT_APPEND_FAILED` onto `-32000` would collapse the two and make a
+ * failed `mesh.send` read as an audit error.
+ */
+export const ERROR_DATA_CODE = {
+  /** `-32010`. An established owner still holds the identity (§ 8.1). */
+  DUPLICATE_IDENTITY: "DUPLICATE_IDENTITY",
+  /** `-32011`. Provision it first (§ 10.1). */
+  IDENTITY_NOT_REGISTERED: "IDENTITY_NOT_REGISTERED",
+  /** `-32014`. `data.key_status` says why (§ 10.2). */
+  KEY_NOT_APPROVED: "KEY_NOT_APPROVED",
+  /** `-32015`. One `client_message_id`, two different messages (§ 8.2). */
+  SEND_CONFLICT: "SEND_CONFLICT",
+  /** `-32040`. `data.missing_sha256[]` (§ 8.9.3). */
+  AUDIT_MISSING_BLOBS: "AUDIT_MISSING_BLOBS",
+  /** `-32041`. Same `event_id`, different payload (§ 8.9.3). */
+  AUDIT_EVENT_CONFLICT: "AUDIT_EVENT_CONFLICT",
+  /** `-32043`. `data.retry_after_ms` (§ 8.9.3). */
+  AUDIT_BUSY: "AUDIT_BUSY",
+  /** `-32044`. Needs an operator, not a retry (§ 15.6). */
+  AUDIT_STORAGE_EXHAUSTED: "AUDIT_STORAGE_EXHAUSTED",
+  /**
+   * `-32000`. The audit store refused the write for a reason the hub could
+   * not classify (§ 8.9.3). Permanent — see `ERROR_CLASS`.
+   */
+  AUDIT_APPEND_FAILED: "AUDIT_APPEND_FAILED",
+} as const;
+
+export type ErrorDataCode = (typeof ERROR_DATA_CODE)[keyof typeof ERROR_DATA_CODE];
+
+/**
+ * Narrow an error body's `data.code` to the vocabulary above.
+ *
+ * `Object.hasOwn`, not `in`: `in` walks the prototype chain, so a hub — or
+ * anything impersonating one — sending `data.code: "toString"` would be
+ * accepted as a valid code and handed to a caller's switch.
+ */
+export function errorDataCode(error: unknown): ErrorDataCode | null {
+  const code = (error as { data?: { code?: unknown } } | null | undefined)?.data?.code;
+  if (typeof code !== "string") return null;
+  // Widened for the lookup: `hasOwn` is typed against the literal key union,
+  // and the whole job here is deciding whether an arbitrary string is one.
+  const known: Record<string, string> = ERROR_DATA_CODE;
+  return Object.hasOwn(known, code) ? (code as ErrorDataCode) : null;
+}
