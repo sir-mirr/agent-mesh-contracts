@@ -1,4 +1,5 @@
 export * from "./action-proxy";
+export * from "./attachment";
 export * from "./audit";
 export * from "./blob-key";
 export * from "./capabilities";

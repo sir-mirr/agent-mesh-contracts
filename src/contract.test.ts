@@ -8,6 +8,7 @@ import {
   UPLOAD_SIGNATURE_FIXTURES,
 } from "../fixtures/index";
 import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
+import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
 import { ERROR_CLASS, MESH_ERROR, RETIRED_ERROR_CODES } from "./errors";
 import {
@@ -169,5 +170,28 @@ describe("error codes", () => {
   test("a conflicting event is permanent, a missing blob is not", () => {
     expect(ERROR_CLASS[MESH_ERROR.AUDIT_EVENT_CONFLICT]).toBe("permanent");
     expect(ERROR_CLASS[MESH_ERROR.AUDIT_MISSING_BLOBS]).toBe("transient");
+  });
+});
+
+describe("attachment metadata", () => {
+  test("extracts an attachments array from a parsed body", () => {
+    const body = { attachments: [{ id: "abc", download_url: "https://h/api/v1/attachments/abc" }] };
+    expect(extractAttachmentsMeta(body)).toHaveLength(1);
+  });
+
+  test("extracts from a JSON string — hub message content arrives flat", () => {
+    const raw = JSON.stringify({ attachments: [{ id: "abc", download_url: "https://h/x" }] });
+    expect(extractAttachmentsMeta(raw)).toHaveLength(1);
+  });
+
+  test("skips entries missing id or download_url rather than yielding a broken ref", () => {
+    const body = { attachments: [{ id: "abc" }, { download_url: "https://h/x" }, { id: "ok", download_url: "https://h/ok" }] };
+    expect(extractAttachmentsMeta(body)).toEqual([{ id: "ok", download_url: "https://h/ok" }]);
+  });
+
+  test("returns null for unparseable input, an empty array, or a non-object", () => {
+    expect(extractAttachmentsMeta("{ not json")).toBeNull();
+    expect(extractAttachmentsMeta({ attachments: [] })).toBeNull();
+    expect(extractAttachmentsMeta(42)).toBeNull();
   });
 });

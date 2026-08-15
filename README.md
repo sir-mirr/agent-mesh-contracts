@@ -47,6 +47,7 @@ rest.
 | `signature` | Request and upload signing preimages, freshness window, `AgentMeshSig` header |
 | `blob-key` | `<sha256>[.<ext>]` derivation and the filename normalisation behind it |
 | `audit` | Capability advertisement, event types, `event_id` format, append and prepare shapes |
+| `attachment` | `AttachmentMeta` (§ 15.2), upload response shape, extraction from a message body |
 | `errors` | Error codes, and how a client must classify each one |
 | `envelope`, `tool-contract`, `capabilities`, `ownership`, `registry`, `history`, `action-proxy`, `hub` | Core mesh types |
 
