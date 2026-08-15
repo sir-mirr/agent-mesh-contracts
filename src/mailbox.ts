@@ -82,6 +82,21 @@ export interface MeshSendIdempotency {
   client_message_id?: string;
 }
 
+/**
+ * Machine-readable reasons `POST /api/v1/agents` refuses (SPEC § 10.1).
+ *
+ * A caller onboarding a lane has to tell "this name is taken" from "your
+ * request was malformed" without matching on prose.
+ */
+export const PROVISION_ERROR = {
+  /** `create_only` and the identity already exists. 409. Permanent. */
+  IDENTITY_EXISTS: "IDENTITY_EXISTS",
+  /** The identity was torn down and cannot be re-registered (§ 9.3). 409. Permanent. */
+  IDENTITY_DELETED: "IDENTITY_DELETED",
+} as const;
+
+export type ProvisionErrorCode = (typeof PROVISION_ERROR)[keyof typeof PROVISION_ERROR];
+
 export const MAILBOX_ERROR = {
   /** Same `client_message_id`, different message. Permanent — do not retry. */
   SEND_CONFLICT: -32015,

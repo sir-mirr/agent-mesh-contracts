@@ -75,6 +75,18 @@ export const ProvisionAgentRequest = Type.Object(
       Type.Union([Type.String({ maxLength: 256 }), Type.Null()]),
     ),
     public_key: Type.Optional(PublicKey),
+    /**
+     * Refuse rather than update if the identity already exists (§ 10.1).
+     *
+     * Onboarding a new participant must never take over an existing one. The
+     * route upserts by default, so a check followed by a provision has a window
+     * in which someone else's identity is adopted and their pending key
+     * replaced — and the taker sees a success.
+     *
+     * Default false, which keeps the rotation and re-registration paths that
+     * rely on update semantics working unchanged.
+     */
+    create_only: Type.Optional(Type.Boolean()),
   },
   {
     additionalProperties: false,

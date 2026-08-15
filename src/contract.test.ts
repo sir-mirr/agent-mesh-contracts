@@ -11,7 +11,7 @@ import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
 import { ERROR_CLASS, MESH_ERROR, RETIRED_ERROR_CODES } from "./errors";
-import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR } from "./mailbox";
+import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR, PROVISION_ERROR } from "./mailbox";
 import {
   formatUploadAuthorization,
   parseUploadAuthorization,
@@ -377,5 +377,23 @@ describe("schemas accept every member the protocol defines", () => {
     // additionalProperties: false is the right setting and the reason a missing
     // member is fatal rather than tolerated.
     expect(Value.Check(MeshSendParams, { to: "peer", content: "x", invented: 1 })).toBe(false);
+  });
+});
+
+describe("create_only provisioning (SPEC § 10.1)", () => {
+  test("the schema accepts it and it stays optional", () => {
+    // Optional because the rotation and re-registration paths rely on update
+    // semantics; making it default would break them silently.
+    expect(Value.Check(ProvisionAgentRequest, { identity: "a", type: "service" })).toBe(true);
+    expect(Value.Check(ProvisionAgentRequest, {
+      identity: "a", type: "service", create_only: true,
+    })).toBe(true);
+    expect(Value.Check(ProvisionAgentRequest, {
+      identity: "a", type: "service", create_only: "yes",
+    })).toBe(false);
+  });
+
+  test("the refusal reasons are distinguishable without matching prose", () => {
+    expect(PROVISION_ERROR.IDENTITY_EXISTS).not.toBe(PROVISION_ERROR.IDENTITY_DELETED);
   });
 });
