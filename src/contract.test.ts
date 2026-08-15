@@ -466,3 +466,35 @@ describe("reminder schedules", () => {
     expect(() => nextIntervalFire(new Date(), 0, new Date())).toThrow();
   });
 });
+
+describe("audit error classification", () => {
+  test("every audit code § 8.9.3 lists carries a class", () => {
+    // A code with no entry falls through `ERROR_CLASS[code]` as `undefined`,
+    // and a client branching on the class treats it as neither — which in
+    // practice means whichever branch its `else` happens to be.
+    for (const code of [
+      MESH_ERROR.AUDIT_MISSING_BLOBS,
+      MESH_ERROR.AUDIT_EVENT_CONFLICT,
+      MESH_ERROR.AUDIT_BUSY,
+      MESH_ERROR.AUDIT_STORAGE_EXHAUSTED,
+      MESH_ERROR.SERVER_ERROR,
+      MESH_ERROR.INVALID_PARAMS,
+    ]) {
+      expect(ERROR_CLASS[code], `class for ${code}`).toBeDefined();
+    }
+  });
+
+  test("an unclassifiable store failure is permanent, not retried forever", () => {
+    // The hub returns this for anything it could not identify. Classing it
+    // transient would retry one broken event without limit against a path that
+    // is already broken.
+    expect(ERROR_CLASS[MESH_ERROR.SERVER_ERROR]).toBe("permanent");
+    expect(ERROR_CLASS[MESH_ERROR.AUDIT_BUSY]).toBe("transient");
+  });
+
+  test("the two exhaustion-shaped codes stay distinct", () => {
+    // Both tell a client to back off; only one clears on its own.
+    expect(MESH_ERROR.AUDIT_BUSY).not.toBe(MESH_ERROR.AUDIT_STORAGE_EXHAUSTED);
+    expect(ERROR_CLASS[MESH_ERROR.AUDIT_STORAGE_EXHAUSTED]).toBe("transient-operator");
+  });
+});

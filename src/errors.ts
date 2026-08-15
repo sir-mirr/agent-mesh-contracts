@@ -27,6 +27,24 @@ export const MESH_ERROR = {
   AUDIT_BUSY: -32043,
   /** Audit storage is full. Transient, but only an operator can clear it. */
   AUDIT_STORAGE_EXHAUSTED: -32044,
+  /**
+   * The audit store refused a write for a reason the hub could not classify
+   * (SPEC § 8.9.3) — a constraint violation, a schema mismatch, a defect in
+   * the handler. `data.code` is `"AUDIT_APPEND_FAILED"`.
+   *
+   * **Permanent**, and that is the whole point of it existing. Every one of
+   * those causes fails identically on the next attempt, so reporting them as
+   * `AUDIT_BUSY` — which § 8.9.3 retries "with backoff and jitter and no
+   * maximum attempt count" — produces exactly the unbounded retry the
+   * transient/permanent split was introduced to prevent, and parks the event
+   * in an outbox nobody reads instead of a local failure record someone does.
+   *
+   * JSON-RPC's generic server-error code rather than a new one in the audit
+   * range: an unclassified failure is not an audit condition a client can
+   * reason about, and giving it a specific code would invite specific
+   * handling of something whose only honest description is "this hub broke".
+   */
+  SERVER_ERROR: -32000,
 
   INVALID_PARAMS: -32602,
 } as const;
@@ -63,6 +81,7 @@ export const ERROR_CLASS: Record<number, ErrorClass> = {
   [MESH_ERROR.AUDIT_BUSY]: "transient",
   [MESH_ERROR.AUDIT_STORAGE_EXHAUSTED]: "transient-operator",
   [MESH_ERROR.INVALID_PARAMS]: "permanent",
+  [MESH_ERROR.SERVER_ERROR]: "permanent",
 };
 
 /** Why an identity has no usable key. Carried in `-32014` as `data.key_status`. */
