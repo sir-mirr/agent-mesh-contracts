@@ -174,3 +174,103 @@ export const KEY_FINGERPRINT_FIXTURES: readonly KeyFingerprintFixture[] = [
     fingerprint: "sha256:Yw3NKWbEM2aRElRIu7JbT_QSpJxzLbLIq8G4WBvXEN0",
   },
 ];
+
+/**
+ * Reminder schedule fixtures (SPEC § 3.3, § 8.5).
+ *
+ * `nextFireAtIso` is the value the *daemon* writes after a fire — the part a
+ * caller cannot observe until the second fire, which is why getting it wrong
+ * stays invisible for one interval and then produces a reminder on a cadence
+ * nobody asked for.
+ *
+ * The alignment cases are the ones that matter. A late fire must not move the
+ * schedule off its grid, and a fire that lands exactly on its slot must not
+ * resolve to that same slot again — that is a reminder that fires in a loop.
+ */
+export interface IntervalAdvanceFixture {
+  name: string;
+  /** The slot the reminder was due for, ISO-8601. */
+  scheduledForIso: string;
+  /** `schedule_spec.every`. */
+  every: string;
+  /** When the daemon actually fired it, ISO-8601. */
+  firedAtIso: string;
+  /** Expected next slot, ISO-8601. */
+  nextFireAtIso: string;
+}
+
+export const INTERVAL_ADVANCE_FIXTURES: readonly IntervalAdvanceFixture[] = [
+  {
+    name: "on-time fire advances exactly one interval",
+    scheduledForIso: "2026-04-18T09:00:00.000Z",
+    every: "15m",
+    firedAtIso: "2026-04-18T09:00:00.000Z",
+    nextFireAtIso: "2026-04-18T09:15:00.000Z",
+  },
+  {
+    name: "slightly late fire keeps the original grid",
+    scheduledForIso: "2026-04-18T09:00:00.000Z",
+    every: "15m",
+    firedAtIso: "2026-04-18T09:02:37.000Z",
+    nextFireAtIso: "2026-04-18T09:15:00.000Z",
+  },
+  {
+    name: "an outage produces one catch-up fire, not one per missed slot",
+    scheduledForIso: "2026-04-18T09:00:00.000Z",
+    every: "15m",
+    firedAtIso: "2026-04-18T11:07:00.000Z",
+    nextFireAtIso: "2026-04-18T11:15:00.000Z",
+  },
+  {
+    name: "a fire landing exactly on a later slot still moves forward",
+    scheduledForIso: "2026-04-18T09:00:00.000Z",
+    every: "15m",
+    firedAtIso: "2026-04-18T10:00:00.000Z",
+    nextFireAtIso: "2026-04-18T10:15:00.000Z",
+  },
+  {
+    name: "daily interval crosses a date boundary",
+    scheduledForIso: "2026-04-18T23:30:00.000Z",
+    every: "1d",
+    firedAtIso: "2026-04-18T23:30:04.000Z",
+    nextFireAtIso: "2026-04-19T23:30:00.000Z",
+  },
+  {
+    name: "a clock that went backwards still yields a future slot",
+    scheduledForIso: "2026-04-18T09:00:00.000Z",
+    every: "30s",
+    firedAtIso: "2026-04-18T08:59:50.000Z",
+    nextFireAtIso: "2026-04-18T09:00:30.000Z",
+  },
+];
+
+/** `(type, schedule_spec)` pairs and whether § 8.5 admits them. */
+export interface ScheduleSpecFixture {
+  name: string;
+  type: string;
+  spec: string;
+  valid: boolean;
+}
+
+export const SCHEDULE_SPEC_FIXTURES: readonly ScheduleSpecFixture[] = [
+  { name: "relative once", type: "once", spec: '{"in":"30s"}', valid: true },
+  { name: "absolute once", type: "once", spec: '{"at":"2026-04-18T09:00:00Z"}', valid: true },
+  { name: "interval", type: "interval", spec: '{"every":"15m"}', valid: true },
+  { name: "cron with a zone", type: "cron", spec: '{"cron":"0 9 * * *","tz":"Asia/Seoul"}', valid: true },
+  { name: "cron without a zone defaults to UTC", type: "cron", spec: '{"cron":"0 9 * * *"}', valid: true },
+
+  { name: "unknown type", type: "weekly", spec: '{"every":"7d"}', valid: false },
+  { name: "once with neither in nor at", type: "once", spec: "{}", valid: false },
+  { name: "interval without every", type: "interval", spec: '{"in":"15m"}', valid: false },
+  { name: "cron without cron", type: "cron", spec: '{"tz":"UTC"}', valid: false },
+  { name: "zero duration would fire in a loop", type: "interval", spec: '{"every":"0s"}', valid: false },
+  { name: "negative duration", type: "interval", spec: '{"every":"-5m"}', valid: false },
+  { name: "fractional duration", type: "interval", spec: '{"every":"1.5h"}', valid: false },
+  { name: "unit that depends on when you ask", type: "interval", spec: '{"every":"1mo"}', valid: false },
+  { name: "bare number with no unit", type: "interval", spec: '{"every":"300"}', valid: false },
+  { name: "duration as a number rather than a string", type: "interval", spec: '{"every":300}', valid: false },
+  { name: "spec is not an object", type: "interval", spec: '"15m"', valid: false },
+  { name: "spec is not JSON at all", type: "interval", spec: "15m", valid: false },
+  { name: "spec is a JSON array", type: "interval", spec: '["15m"]', valid: false },
+  { name: "unparseable absolute time", type: "once", spec: '{"at":"tomorrow"}', valid: false },
+];

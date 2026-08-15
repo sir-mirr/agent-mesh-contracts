@@ -11,5 +11,6 @@ export * from "./key";
 export * from "./mailbox";
 export * from "./ownership";
 export * from "./registry";
+export * from "./schedule";
 export * from "./signature";
 export * from "./tool-contract";

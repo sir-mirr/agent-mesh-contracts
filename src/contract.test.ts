@@ -6,12 +6,15 @@ import {
   REQUEST_SIGNATURE_FIXTURES,
   UPLOAD_AUTHORIZATION_FIXTURES,
   UPLOAD_SIGNATURE_FIXTURES,
+  INTERVAL_ADVANCE_FIXTURES,
+  SCHEDULE_SPEC_FIXTURES,
 } from "../fixtures/index";
 import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
 import { ERROR_CLASS, MESH_ERROR, RETIRED_ERROR_CODES } from "./errors";
 import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR, PROVISION_ERROR } from "./mailbox";
+import { nextIntervalFire, parseDuration, parseScheduleSpec } from "./schedule";
 import {
   formatUploadAuthorization,
   parseUploadAuthorization,
@@ -395,5 +398,71 @@ describe("create_only provisioning (SPEC § 10.1)", () => {
 
   test("the refusal reasons are distinguishable without matching prose", () => {
     expect(PROVISION_ERROR.IDENTITY_EXISTS).not.toBe(PROVISION_ERROR.IDENTITY_DELETED);
+  });
+});
+
+describe("reminder schedules", () => {
+  for (const f of SCHEDULE_SPEC_FIXTURES) {
+    test(`schedule_spec: ${f.name}`, () => {
+      const result = parseScheduleSpec(f.type, f.spec, new Date("2026-04-18T09:00:00Z"));
+      expect(result.ok).toBe(f.valid);
+    });
+  }
+
+  for (const f of INTERVAL_ADVANCE_FIXTURES) {
+    test(`interval advance: ${f.name}`, () => {
+      const parsed = parseScheduleSpec("interval", JSON.stringify({ every: f.every }));
+      if (!parsed.ok) throw new Error(parsed.reason);
+      const next = nextIntervalFire(
+        new Date(f.scheduledForIso),
+        (parsed.schedule as { everyMs: number }).everyMs,
+        new Date(f.firedAtIso),
+      );
+      expect(next.toISOString()).toBe(f.nextFireAtIso);
+    });
+  }
+
+  test("every advance lands strictly in the future", () => {
+    // The property behind the fixtures. A next fire at or before now is a row
+    // that is due the instant it is written, which is a fire loop.
+    for (const f of INTERVAL_ADVANCE_FIXTURES) {
+      const parsed = parseScheduleSpec("interval", JSON.stringify({ every: f.every }));
+      if (!parsed.ok) throw new Error(parsed.reason);
+      const firedAt = new Date(f.firedAtIso);
+      const next = nextIntervalFire(new Date(f.scheduledForIso), (parsed.schedule as { everyMs: number }).everyMs, firedAt);
+      expect(next.getTime()).toBeGreaterThan(firedAt.getTime());
+    }
+  });
+
+  test("a relative once resolves against the supplied clock, not the wall clock", () => {
+    const now = new Date("2026-04-18T09:00:00Z");
+    const result = parseScheduleSpec("once", '{"in":"2h"}', now);
+    if (!result.ok) throw new Error(result.reason);
+    expect((result.schedule as { at: Date }).at.toISOString()).toBe("2026-04-18T11:00:00.000Z");
+  });
+
+  test("an omitted tz means UTC rather than the daemon's local zone", () => {
+    const result = parseScheduleSpec("cron", '{"cron":"0 9 * * *"}');
+    if (!result.ok) throw new Error(result.reason);
+    expect(result.schedule).toEqual({ type: "cron", cron: "0 9 * * *", tz: "UTC" });
+  });
+
+  test("a refusal names the field and never echoes the caller's value", () => {
+    const result = parseScheduleSpec("interval", '{"every":"<script>alert(1)</script>"}');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected a refusal");
+    expect(result.reason).not.toContain("script");
+  });
+
+  test("durations agree with the units they name", () => {
+    expect(parseDuration("30s")).toBe(30_000);
+    expect(parseDuration("5m")).toBe(300_000);
+    expect(parseDuration("2h")).toBe(7_200_000);
+    expect(parseDuration("1d")).toBe(86_400_000);
+    expect(parseDuration("0s")).toBeNull();
+  });
+
+  test("nextIntervalFire refuses an interval that cannot advance", () => {
+    expect(() => nextIntervalFire(new Date(), 0, new Date())).toThrow();
   });
 });
