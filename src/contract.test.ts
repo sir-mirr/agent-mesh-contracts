@@ -6,6 +6,7 @@ import {
   REQUEST_SIGNATURE_FIXTURES,
   UPLOAD_AUTHORIZATION_FIXTURES,
   UPLOAD_SIGNATURE_FIXTURES,
+  REST_SIGNATURE_FIXTURES,
   INTERVAL_ADVANCE_FIXTURES,
   SCHEDULE_SPEC_FIXTURES,
 } from "../fixtures/index";
@@ -20,6 +21,9 @@ import {
   parseUploadAuthorization,
   requestSignaturePreimage,
   uploadSignaturePreimage,
+  restSignaturePreimage,
+  formatRestAuthorization,
+  parseRestAuthorization,
 } from "./signature";
 import { createHash } from "node:crypto";
 import { Value } from "@sinclair/typebox/value";
@@ -614,5 +618,55 @@ describe("error code allocation", () => {
     ] as number[]).filter((code) => !predefined.has(code)));
     const band = MESH_ERROR_RANGE.max - MESH_ERROR_RANGE.min + 1;
     expect(used.size).toBeLessThan(band / 2);
+  });
+});
+
+describe("REST signature preimage", () => {
+  for (const f of REST_SIGNATURE_FIXTURES) {
+    test(f.name, () => {
+      const preimage = restSignaturePreimage({
+        method: f.method, path: f.path, kid: f.kid,
+        nonce: f.nonce, iat: f.iat, bodySha256: f.bodySha256,
+      });
+      expect(hex(preimage)).toBe(f.preimageHex);
+      expect(preimage.length).toBe(f.preimageLength);
+    });
+  }
+
+  test("the three constructions cannot be replayed into each other", () => {
+    // One key signs JSON-RPC, blob upload and REST. Separators are the whole of
+    // what keeps a captured signature from authorising a different act.
+    const rpc = hex(requestSignaturePreimage({
+      method: "mesh.send", kid: "k", nonce: "n", iat: 1, rawParams: new TextEncoder().encode("{}"),
+    }));
+    const rest = hex(restSignaturePreimage({
+      method: "POST", path: "/api/v1/outbox", kid: "k", nonce: "n", iat: 1, bodySha256: "",
+    }));
+    const upload = hex(uploadSignaturePreimage({
+      nonce: "n", blobKey: "0".repeat(64), sha256: "0".repeat(64), size: 1,
+    }));
+    expect(new Set([rpc.slice(0, 40), rest.slice(0, 40), upload.slice(0, 40)]).size).toBe(3);
+  });
+
+  test("the header round-trips, and a blob header is not mistaken for a REST one", () => {
+    const header = formatRestAuthorization({ kid: "kid1", nonce: "n1", iat: 1786780800, signature: "sig1" });
+    expect(parseRestAuthorization(header)).toEqual({
+      kid: "kid1", nonce: "n1", iat: 1786780800, signature: "sig1",
+    });
+
+    // The blob upload header carries no `iat`. Accepting it with a default
+    // would place every such request at the epoch — outside the freshness
+    // window, and refused for a reason naming the wrong thing.
+    expect(parseRestAuthorization(formatUploadAuthorization({ kid: "k", nonce: "n", signature: "s" }))).toBeNull();
+    expect(parseRestAuthorization("Bearer abc")).toBeNull();
+    expect(parseRestAuthorization('AgentMeshSig kid="k", nonce="n", iat="later", sig="s"')).toBeNull();
+  });
+
+  test("a negative or fractional iat is refused rather than signed", () => {
+    for (const iat of [-1, 1.5, Number.NaN]) {
+      expect(() => restSignaturePreimage({
+        method: "GET", path: "/x", kid: "k", nonce: "n", iat, bodySha256: "",
+      })).toThrow();
+    }
   });
 });

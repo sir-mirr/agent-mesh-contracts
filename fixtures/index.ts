@@ -274,3 +274,99 @@ export const SCHEDULE_SPEC_FIXTURES: readonly ScheduleSpecFixture[] = [
   { name: "spec is a JSON array", type: "interval", spec: '["15m"]', valid: false },
   { name: "unparseable absolute time", type: "once", spec: '{"at":"tomorrow"}', valid: false },
 ];
+
+/**
+ * Signed REST requests (SPEC § 9.2).
+ *
+ * A third construction signing with the same key, so the separator is the
+ * whole of what keeps a captured `POST /api/v1/outbox` from being replayed as
+ * an upload authorisation. These pin the bytes; agreeing on the scheme name
+ * proves nothing.
+ *
+ * Two cases carry the reasoning. The query string is inside the preimage — an
+ * attacker able to rewrite `?peer=` could otherwise redirect a history read
+ * while the signature still verified. And the multi-byte path is here because
+ * the length prefixes count **bytes**: an implementation that counted
+ * characters produces a different preimage for exactly the paths a Korean or
+ * Japanese deployment would use, and nowhere else.
+ */
+export interface RestSignatureFixture {
+  name: string;
+  method: string;
+  path: string;
+  kid: string;
+  nonce: string;
+  iat: number;
+  /** Lowercase hex, or `""` for a request with no body. */
+  bodySha256: string;
+  preimageHex: string;
+  preimageLength: number;
+}
+
+export const REST_SIGNATURE_FIXTURES: readonly RestSignatureFixture[] = [
+  {
+    name: "GET with no body",
+    method: "GET",
+    path: "/api/v1/outbox",
+    kid: "kid1",
+    nonce: "n1",
+    iat: 1786780800,
+    bodySha256: "",
+    preimageHex:
+      "6167656e742d6d6573682f726573742f763100000000034745540000000e2f6170692f76312f" +
+      "6f7574626f78000000046b696431000000026e310000000a3137383637383038303000000000",
+    preimageLength: 76,
+  },
+  {
+    name: "POST with a body digest",
+    method: "POST",
+    path: "/api/v1/outbox",
+    kid: "kid1",
+    nonce: "n2",
+    iat: 1786780800,
+    bodySha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    preimageHex:
+      "6167656e742d6d6573682f726573742f76310000000004504f53540000000e2f6170692f7631" +
+      "2f6f7574626f78000000046b696431000000026e320000000a313738363738303830300000004065336230633434323938666331633134396166626634633839393666623932343237616534316534363439623933346361343935393931623738353262383535",
+    preimageLength: 141,
+  },
+  {
+    name: "query string is covered",
+    method: "GET",
+    path: "/api/v1/inbox/history?peer=b&limit=10",
+    kid: "kid1",
+    nonce: "n3",
+    iat: 1786780800,
+    bodySha256: "",
+    preimageHex:
+      "6167656e742d6d6573682f726573742f76310000000003474554000000252f6170692f76312f" +
+      "696e626f782f686973746f72793f706565723d62266c696d69743d3130000000046b696431000000026e330000000a3137383637383038303000000000",
+    preimageLength: 99,
+  },
+  {
+    name: "lowercase method is normalised",
+    method: "get",
+    path: "/api/v1/outbox",
+    kid: "kid1",
+    nonce: "n1",
+    iat: 1786780800,
+    bodySha256: "",
+    preimageHex:
+      "6167656e742d6d6573682f726573742f763100000000034745540000000e2f6170692f76312f" +
+      "6f7574626f78000000046b696431000000026e310000000a3137383637383038303000000000",
+    preimageLength: 76,
+  },
+  {
+    name: "multi-byte path — prefixes count bytes",
+    method: "DELETE",
+    path: "/api/v1/outbox/메시지",
+    kid: "kid1",
+    nonce: "n4",
+    iat: 1786780800,
+    bodySha256: "",
+    preimageHex:
+      "6167656e742d6d6573682f726573742f7631000000000644454c455445000000182f6170692f" +
+      "76312f6f7574626f782feba994ec8b9ceca780000000046b696431000000026e340000000a3137383637383038303000000000",
+    preimageLength: 89,
+  },
+];

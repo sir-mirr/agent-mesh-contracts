@@ -101,3 +101,27 @@ export const MAILBOX_ERROR = {
   /** Same `client_message_id`, different message. Permanent — do not retry. */
   SEND_CONFLICT: -32015,
 } as const;
+
+/**
+ * The REST surface's own version (SPEC § 9.2).
+ *
+ * Separate from `MailboxCapabilities.version` because they move for different
+ * reasons: that one versions the transport — methods, params, error codes —
+ * and this one versions the route table. A client that gated the transport on
+ * a route-table bump would refuse a hub that had only gained a route, which is
+ * the conflation § 13 exists to prevent.
+ */
+export interface SurfaceCapabilities {
+  version: number;
+}
+
+export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = { version: 1 };
+
+/** `GET /api/v1/capabilities` — what a deployment actually enforces (§ 9.2). */
+export interface DeploymentCapabilities {
+  mailbox: MailboxCapabilities;
+  surface: SurfaceCapabilities;
+  /** Shaped by `AUDIT_CAPABILITY_DEFAULTS`; repeated here for socketless
+   *  callers, which never see the `mesh.connect` result that carries it. */
+  audit: Record<string, unknown>;
+}

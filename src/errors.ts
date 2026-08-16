@@ -237,6 +237,14 @@ export const ERROR_DATA_CODE = {
    * one prose edit away from breaking.
    */
   TEARDOWN_REQUIRES_ADMIN: "TEARDOWN_REQUIRES_ADMIN",
+  /**
+   * `409` on `DELETE /api/v1/outbox/{id}` (§ 9.2).
+   *
+   * The recipient was handed the message between the sender listing it as
+   * recallable and asking to recall it. The listing is a hint; the delete
+   * re-decides, and this is it deciding against.
+   */
+  ALREADY_DELIVERED: "ALREADY_DELIVERED",
 } as const;
 
 export type ErrorDataCode = (typeof ERROR_DATA_CODE)[keyof typeof ERROR_DATA_CODE];

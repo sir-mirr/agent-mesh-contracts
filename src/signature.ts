@@ -17,6 +17,7 @@
 
 const RPC_DOMAIN = "agent-mesh/sig/v1";
 const UPLOAD_DOMAIN = "agent-mesh/upload/v1";
+const REST_DOMAIN = "agent-mesh/rest/v1";
 
 const encoder = new TextEncoder();
 
@@ -167,4 +168,102 @@ export function parseUploadAuthorization(
   const { kid, nonce, sig } = params;
   if (!kid || !nonce || !sig) return null;
   return { kid, nonce, signature: sig };
+}
+
+/** SPEC § 9.2 — `Authorization` scheme for the signed REST surface. */
+export const REST_AUTH_SCHEME = "AgentMeshSig";
+
+export interface RestSignatureInput {
+  /** Uppercase HTTP method — `GET`, `POST`, `DELETE`. */
+  method: string;
+  /**
+   * Path **with its query string**, exactly as it goes on the wire.
+   *
+   * Signing the path without the query would leave `?peer=` and `?limit=`
+   * unprotected on the one surface where they carry the request — an attacker
+   * able to rewrite a query could redirect a history read at another peer while
+   * the signature still verified.
+   */
+  path: string;
+  kid: string;
+  nonce: string;
+  /** Unix seconds. */
+  iat: number;
+  /**
+   * SHA-256 of the raw request body, lowercase hex; empty string when there is
+   * no body.
+   *
+   * A digest rather than the bytes, because the body is read as a stream and a
+   * preimage that required buffering it would put a size limit on signing
+   * rather than on the route.
+   */
+  bodySha256: string;
+}
+
+/**
+ * Preimage for a signed REST request (SPEC § 9.2).
+ *
+ * **Its own domain separator.** Three constructions now sign with the same key
+ * — JSON-RPC (§ 8.1), blob upload (§ 9.1) and this — and two signatures that
+ * could be replayed into each other's position are one signature. The
+ * separators are what keep a captured `POST /api/v1/outbox` from being replayed
+ * as an upload authorisation.
+ *
+ * Every field is length-prefixed for the reason § 8.1 gives: without it,
+ * `path="/a/b"` with `nonce="c"` and `path="/a"` with `nonce="b/c"` produce the
+ * same bytes, and a signature over one verifies the other.
+ */
+export function restSignaturePreimage(input: RestSignatureInput): Uint8Array {
+  if (!Number.isInteger(input.iat) || input.iat < 0) {
+    throw new Error(`signature: iat must be a non-negative integer, got ${input.iat}`);
+  }
+  return concat([
+    utf8(REST_DOMAIN),
+    new Uint8Array([0x00]),
+    lengthPrefixed(utf8(input.method.toUpperCase())),
+    lengthPrefixed(utf8(input.path)),
+    lengthPrefixed(utf8(input.kid)),
+    lengthPrefixed(utf8(input.nonce)),
+    lengthPrefixed(utf8(decimal(input.iat))),
+    lengthPrefixed(utf8(input.bodySha256)),
+  ]);
+}
+
+/** Render the REST `Authorization` header value. */
+export function formatRestAuthorization(params: {
+  kid: string;
+  nonce: string;
+  iat: number;
+  /** base64url signature over `restSignaturePreimage`. */
+  signature: string;
+}): string {
+  return (
+    `${REST_AUTH_SCHEME} kid="${params.kid}", nonce="${params.nonce}", ` +
+    `iat="${params.iat}", sig="${params.signature}"`
+  );
+}
+
+/**
+ * Parse a REST `AgentMeshSig` header. Returns null when it is not one.
+ *
+ * Separate from `parseUploadAuthorization` despite the shared scheme name: this
+ * one carries `iat`, because a REST request has no body field to put it in and
+ * the freshness window needs it. A header missing `iat` is a blob-upload header
+ * and is refused here rather than accepted with a default, which would place
+ * every such request at the epoch and outside the window.
+ */
+export function parseRestAuthorization(
+  header: string,
+): { kid: string; nonce: string; iat: number; signature: string } | null {
+  const trimmed = header.trim();
+  if (!trimmed.startsWith(`${REST_AUTH_SCHEME} `)) return null;
+  const params: Record<string, string> = {};
+  for (const match of trimmed.slice(REST_AUTH_SCHEME.length).matchAll(AUTH_PARAM_RE)) {
+    params[match[1]!] = match[2]!;
+  }
+  const { kid, nonce, iat, sig } = params;
+  if (!kid || !nonce || !iat || !sig) return null;
+  const seconds = Number(iat);
+  if (!Number.isInteger(seconds) || seconds < 0) return null;
+  return { kid, nonce, iat: seconds, signature: sig };
 }
