@@ -9,6 +9,7 @@ export * from "./history";
 export * from "./hub";
 export * from "./key";
 export * from "./mailbox";
+export * from "./capabilities-rbac";
 export * from "./ownership";
 export * from "./registry";
 export * from "./schedule";
