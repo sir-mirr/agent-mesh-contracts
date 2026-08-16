@@ -115,7 +115,25 @@ export interface SurfaceCapabilities {
   version: number;
 }
 
-export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = { version: 1 };
+/**
+ * | Version | Route table |
+ * |---------|-------------|
+ * | `1`     | § 9.2 and § 9.2.1 as first built |
+ * | `2`     | `GET /api/v1/agents/{identity}/keys` reports the registered `type` |
+ *
+ * The bump exists because **the alternative is inferring a version from a
+ * missing field, and absence is ambiguous.** A hub too old to report `type`
+ * omits it; a hub that reports it answers `null` for an identity registered
+ * through `mesh.register`, which never wrote one. A client probing for absence
+ * cannot tell those apart, and the one it guesses wrong is the one where it
+ * silently stops checking.
+ *
+ * Read from `GET /api/v1/capabilities`, which is unsigned and served by the
+ * running process — so it answers for the deployment rather than for whatever
+ * a source tree claims. `agentMeshSpec` cannot do this job: it versions the
+ * whole document at minor granularity (§ 13), so it does not move for a field.
+ */
+export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = { version: 2 };
 
 /** `GET /api/v1/capabilities` — what a deployment actually enforces (§ 9.2). */
 export interface DeploymentCapabilities {
