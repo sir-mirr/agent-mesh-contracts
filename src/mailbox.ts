@@ -93,6 +93,19 @@ export const PROVISION_ERROR = {
   IDENTITY_EXISTS: "IDENTITY_EXISTS",
   /** The identity was torn down and cannot be re-registered (§ 9.3). 409. Permanent. */
   IDENTITY_DELETED: "IDENTITY_DELETED",
+  /**
+   * `public_key` is already on record under a different identity. 409.
+   * Permanent for that key; the caller must supply one of its own.
+   *
+   * `agent_keys` is keyed on the fingerprint alone, so without this the INSERT
+   * silently does nothing and the response reports the *other* holder's
+   * status — a caller is told `approved` while having no key at all, and an
+   * identity of a `requires_key` type exists that can never connect.
+   *
+   * The response does not name the holder. Doing so would make provisioning a
+   * fingerprint-to-identity lookup readable by anyone who can reach the port.
+   */
+  KEY_HELD_BY_ANOTHER_IDENTITY: "KEY_HELD_BY_ANOTHER_IDENTITY",
 } as const;
 
 export type ProvisionErrorCode = (typeof PROVISION_ERROR)[keyof typeof PROVISION_ERROR];
@@ -120,6 +133,7 @@ export interface SurfaceCapabilities {
  * |---------|-------------|
  * | `1`     | § 9.2 and § 9.2.1 as first built |
  * | `2`     | `GET /api/v1/agents/{identity}/keys` reports the registered `type` |
+ * | `3`     | `POST /api/v1/agents` refuses a `public_key` held by another identity |
  *
  * The bump exists because **the alternative is inferring a version from a
  * missing field, and absence is ambiguous.** A hub too old to report `type`
@@ -133,7 +147,7 @@ export interface SurfaceCapabilities {
  * a source tree claims. `agentMeshSpec` cannot do this job: it versions the
  * whole document at minor granularity (§ 13), so it does not move for a field.
  */
-export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = { version: 2 };
+export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = { version: 3 };
 
 /** `GET /api/v1/capabilities` — what a deployment actually enforces (§ 9.2). */
 export interface DeploymentCapabilities {
