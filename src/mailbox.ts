@@ -126,6 +126,18 @@ export const MAILBOX_ERROR = {
  */
 export interface SurfaceCapabilities {
   version: number;
+  /**
+   * How this deployment learns a peer's address (SPEC § 8.11).
+   *
+   * `socket` — the kernel's view of the peer. Evidence.
+   * `forwarded` — taken from `X-Forwarded-For`, believed only from a
+   * configured trusted proxy. Evidence **only if** the hub is unreachable
+   * except through that proxy, which nothing inside the hub can verify.
+   *
+   * Reported because a control that is configured off is indistinguishable
+   * from one that is on until somebody asks.
+   */
+  observed_source: "socket" | "forwarded";
 }
 
 /**
@@ -134,6 +146,7 @@ export interface SurfaceCapabilities {
  * | `1`     | § 9.2 and § 9.2.1 as first built |
  * | `2`     | `GET /api/v1/agents/{identity}/keys` reports the registered `type` |
  * | `3`     | `POST /api/v1/agents` refuses a `public_key` held by another identity |
+ * | `4`     | `capabilities.surface.observed_source` reports how a peer's address is learned |
  *
  * The bump exists because **the alternative is inferring a version from a
  * missing field, and absence is ambiguous.** A hub too old to report `type`
@@ -147,7 +160,12 @@ export interface SurfaceCapabilities {
  * a source tree claims. `agentMeshSpec` cannot do this job: it versions the
  * whole document at minor granularity (§ 13), so it does not move for a field.
  */
-export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = { version: 3 };
+export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = {
+  version: 4,
+  // Overridden per deployment; this is the safe default, not a guess about
+  // where the hub is running.
+  observed_source: "socket",
+};
 
 /** `GET /api/v1/capabilities` — what a deployment actually enforces (§ 9.2). */
 export interface DeploymentCapabilities {
