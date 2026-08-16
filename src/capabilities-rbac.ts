@@ -45,6 +45,15 @@ export const CAPABILITY = {
   AUDIT_READ_CONTENT: "audit.read.content",
   /** Queue depth per identity. No bodies, ever, on any route it gates. */
   INBOX_READ_DEPTH: "inbox.read.depth",
+  /**
+   * Where each identity has been observed connecting from (§ 8.11).
+   *
+   * Its own capability rather than folded into `audit.read.metadata`: this is
+   * a network fact about a participant's hosts, and an operator who should see
+   * queue depth or an audit trail is not automatically one who should learn
+   * where every agent runs.
+   */
+  SOURCE_READ: "source.read",
 } as const;
 
 export type Capability = (typeof CAPABILITY)[keyof typeof CAPABILITY];
