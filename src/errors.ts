@@ -150,6 +150,10 @@ export const ERROR_CLASS: Record<number, ErrorClass> = {
    * carries the same contradiction and is refused identically.
    */
   [MAILBOX_ERROR.SEND_CONFLICT]: "permanent",
+  // Permanent, not transient: a retry from the same network fails identically.
+  // Classing it transient would make a lane loop against a refusal only an
+  // operator can lift.
+  [MAILBOX_ERROR.SOURCE_CHANGED]: "permanent",
 };
 
 /**
@@ -215,6 +219,11 @@ export const ERROR_DATA_CODE = {
   KEY_NOT_APPROVED: "KEY_NOT_APPROVED",
   /** `-32015`. One `client_message_id`, two different messages (§ 8.2). */
   SEND_CONFLICT: "SEND_CONFLICT",
+  /**
+   * `-32017`. A dormant identity sent from a network it has not been seen on
+   * (§ 8.11.2). An operator reviews it; the lane cannot clear this itself.
+   */
+  SOURCE_CHANGED: "SOURCE_CHANGED",
   /** `-32040`. `data.missing_sha256[]` (§ 8.9.3). */
   AUDIT_MISSING_BLOBS: "AUDIT_MISSING_BLOBS",
   /** `-32041`. Same `event_id`, different payload (§ 8.9.3). */
