@@ -69,8 +69,16 @@ export type Step =
   | { do: "approve"; identity: string }
   /** Deny or revoke it. `reason` is required for a revoke (§ 10.2). */
   | { do: "revoke"; identity: string; reason: string }
-  /** Open a signed socket and `mesh.connect`. */
-  | { do: "connect"; identity: string; expect?: ExpectRpc }
+  /**
+   * Open a signed socket and `mesh.connect`.
+   *
+   * `expectDelivered` counts the `mesh.message` notifications the hub pushes
+   * after the connect succeeds. It exists because that push is a *guarantee* a
+   * lane depends on and nothing could state: a participant that only listens —
+   * never calling `mesh.receive` — sees whatever accumulated while it was away
+   * only if the hub replays it, and until now both sides took that on trust.
+   */
+  | { do: "connect"; identity: string; expectDelivered?: number; expect?: ExpectRpc }
   /** `mesh.send` over whichever transport the runner is exercising. */
   | { do: "send"; from: string; to: string; content: string; clientMessageId?: string; expect?: ExpectRpc }
   /** `mesh.receive` — leases a batch and settles the previous one. */
@@ -250,6 +258,26 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "connect", identity: "e2e-a" },
       { do: "send", from: "e2e-a", to: "e2e-b", content: "안녕 🌐 mesh", expect: { error: null } },
       { do: "receive", identity: "e2e-b", expectCount: 1 },
+    ],
+  },
+  {
+    id: "E2E-CONNECT-001",
+    clause: "§ 8.1, § 8.10",
+    // Asked for by client-claude (mail #234), whose lane is push-only: it waits
+    // for `mesh.message` and never calls `mesh.receive`. Which side has to
+    // drain decides whether they change nothing or take on lease semantics in
+    // production, and the answer was implied rather than stated.
+    why: "What arrived while an identity was away is pushed when it connects. A lane that only listens has no other way to see it, and a mesh that quietly required a drain call would strand every such participant with a full mailbox and no symptom.",
+    steps: [
+      { do: "provision", identity: "e2e-await-from", type: "ai-claude", key: true },
+      { do: "provision", identity: "e2e-await-to", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-await-from" },
+      { do: "approve", identity: "e2e-await-to" },
+      // Sent while the recipient holds no socket at all.
+      { do: "send", from: "e2e-await-from", to: "e2e-await-to", content: "waiting for you",
+        expect: { error: null } },
+      // No `receive` anywhere in this scenario. That is the point.
+      { do: "connect", identity: "e2e-await-to", expect: { error: null }, expectDelivered: 1 },
     ],
   },
   {
