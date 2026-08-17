@@ -78,9 +78,31 @@ export type Step =
    * never calling `mesh.receive` — sees whatever accumulated while it was away
    * only if the hub replays it, and until now both sides took that on trust.
    */
-  | { do: "connect"; identity: string; expectDelivered?: number; expect?: ExpectRpc }
+  | { do: "connect"; identity: string; expectDelivered?: number; hold?: boolean; expect?: ExpectRpc }
+  /**
+   * Close a socket a `connect` was holding.
+   *
+   * **Explicit, because absence has to be sayable.** The case § 8.2a exists for
+   * is a reply to mail with the *recipient* live and the *sender* not, and a
+   * runner that tidies up implicitly at the end of a scenario can never produce
+   * that state in the middle. Cleanup at the end is still right, but as hygiene
+   * rather than as an assertion — a socket left open changes presence for the
+   * next scenario, and on a shared mesh that moves every delivered/pending
+   * verdict after it.
+   */
+  | { do: "disconnect"; identity: string }
+  /**
+   * How many `mesh.message` pushes arrived **since the last check**.
+   *
+   * A held socket receives at any time, so "how many" means nothing without
+   * "since when". Clearing the counter fixes the window; a cumulative count
+   * would make every expectation depend on the steps above it, so inserting one
+   * step would falsify everything below — the reason step numbers are kept out
+   * of the platform's mutation manifest.
+   */
+  | { do: "expectPushed"; identity: string; count: number }
   /** `mesh.send` over whichever transport the runner is exercising. */
-  | { do: "send"; from: string; to: string; content: string; clientMessageId?: string; expect?: ExpectRpc }
+  | { do: "send"; from: string; to: string; content: string; replyTo?: string; clientMessageId?: string; expect?: ExpectRpc }
   /** `mesh.receive` — leases a batch and settles the previous one. */
   | { do: "receive"; identity: string; ackPrevious?: boolean; expectCount?: number; bind?: Record<string, string> }
   /** A REST call, for the surfaces that are not JSON-RPC. */
@@ -360,6 +382,40 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       // not a 403, because the sender is not entitled to learn it exists.
       { do: "http", method: "DELETE", path: "/api/v1/mailbox/out/{{taken}}",
         as: { signedBy: "e2e-recall-to" }, expect: { status: 404 } },
+    ],
+  },
+  {
+    id: "E2E-REPLY-001",
+    clause: "§ 8.2a",
+    // The clause that was checked by one implementation alone, which § 17.3 is
+    // explicit is not enough. It needed a step that holds a socket open across
+    // later steps; the shape was proposed by client-claude (mail #242) and sat
+    // recorded until now.
+    why: "A reply to mail must not be pushed because the recipient happens to be holding a socket. That puts half a thread on a socket a correspondent was briefly holding and leaves them to find the rest — one end present is exactly the case the mailbox exists for.",
+    steps: [
+      { do: "provision", identity: "e2e-reply-a", type: "ai-claude", key: true },
+      { do: "provision", identity: "e2e-reply-b", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-reply-a" },
+      { do: "approve", identity: "e2e-reply-b" },
+
+      // `a` sends by mail — the socketless route, so `via` is mailbox — while
+      // holding no socket of its own.
+      { do: "http", method: "POST", path: "/api/v1/mailbox/out", as: { signedBy: "e2e-reply-a" },
+        body: { to: "e2e-reply-b", content: "by mail" }, expect: { status: 200 },
+        bind: { mailId: "id" } },
+
+      // `b` comes online and takes it. Now the recipient of the *reply* (`a`)
+      // is the one who is absent.
+      { do: "connect", identity: "e2e-reply-b", hold: true, expect: { error: null } },
+      { do: "expectPushed", identity: "e2e-reply-b", count: 1 },
+
+      // `b` replies to it while `a` holds nothing. The reply must wait in the
+      // mailbox even though `b` is live — one end present is not both.
+      { do: "send", from: "e2e-reply-b", to: "e2e-reply-a", content: "answered",
+        replyTo: "{{mailId}}", expect: { error: null } },
+      { do: "receive", identity: "e2e-reply-a", expectCount: 1 },
+
+      { do: "disconnect", identity: "e2e-reply-b" },
     ],
   },
   {
