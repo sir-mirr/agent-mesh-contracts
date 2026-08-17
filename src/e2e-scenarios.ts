@@ -1,5 +1,5 @@
 /**
- * Cross-repository end-to-end scenarios (SPEC § 16).
+ * Cross-repository end-to-end scenarios (SPEC § 17).
  *
  * **Here rather than in either implementation**, for the same reason the error
  * codes are: two repositories have to agree on what the mesh does, and a
