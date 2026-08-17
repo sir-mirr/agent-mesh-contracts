@@ -70,6 +70,27 @@ export const CAPABILITY = {
    * where every agent runs.
    */
   SOURCE_READ: "source.read",
+  /**
+   * Admit a **person** to the platform, or refuse them (§ 9.1's approval
+   * queue).
+   *
+   * Not `role.grant`, which hands capabilities to somebody already admitted,
+   * and not `agent.provision`, which claims a mesh identity — a person is
+   * neither. Three routes gated on `payload.role === 'admin'` for want of this
+   * name, which is how they were still doing it long after § 11 landed:
+   * migrating them needed a capability that did not exist, so nobody migrated
+   * them and nothing said so.
+   */
+  USER_ADMIT: "user.admit",
+  /**
+   * Read AI usage figures (`/api/v1/admin/ai-usage`).
+   *
+   * Its own name for the same reason `tenant.read.stats` is: this is spend and
+   * model traffic, the audit trail is who did what, and one capability
+   * answering both is the shape § 11 exists to undo. Somebody watching cost has
+   * no business in the trail, and vice versa.
+   */
+  USAGE_READ: "usage.read",
 } as const;
 
 export type Capability = (typeof CAPABILITY)[keyof typeof CAPABILITY];
