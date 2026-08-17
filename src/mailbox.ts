@@ -132,6 +132,16 @@ export const MAILBOX_ERROR = {
    * unaffected: a lane that cannot receive cannot be told why it is blocked.
    */
   SOURCE_CHANGED: -32017,
+  /**
+   * `-32018`. The sender's group has no egress rule to the recipient's
+   * (SPEC § 12).
+   *
+   * **Permanent.** A retry changes nothing; only an operator adding a rule
+   * does. Refused at `mesh.send` rather than accepted and dropped — the sender
+   * learning its message was refused is worth more than concealing that the
+   * target exists, and a mesh where messages vanish is the alternative.
+   */
+  EGRESS_DENIED: -32018,
 } as const;
 
 /**
@@ -167,6 +177,7 @@ export interface SurfaceCapabilities {
  * | `3`     | `POST /api/v1/agents` refuses a `public_key` held by another identity |
  * | `4`     | `capabilities.surface.observed_source` reports how a peer's address is learned |
  * | `5`     | dormant sends from an unseen place are refused `-32017` (§ 8.11.2) |
+ * | `6`     | sends are denied by default unless a group egress rule allows them (§ 12) |
  *
  * The bump exists because **the alternative is inferring a version from a
  * missing field, and absence is ambiguous.** A hub too old to report `type`
@@ -181,7 +192,7 @@ export interface SurfaceCapabilities {
  * whole document at minor granularity (§ 13), so it does not move for a field.
  */
 export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = {
-  version: 5,
+  version: 6,
   // Overridden per deployment; this is the safe default, not a guess about
   // where the hub is running.
   observed_source: "socket",

@@ -154,6 +154,8 @@ export const ERROR_CLASS: Record<number, ErrorClass> = {
   // Classing it transient would make a lane loop against a refusal only an
   // operator can lift.
   [MAILBOX_ERROR.SOURCE_CHANGED]: "permanent",
+  // A retry changes nothing; only an operator adding a rule does.
+  [MAILBOX_ERROR.EGRESS_DENIED]: "permanent",
 };
 
 /**
@@ -224,6 +226,8 @@ export const ERROR_DATA_CODE = {
    * (§ 8.11.2). An operator reviews it; the lane cannot clear this itself.
    */
   SOURCE_CHANGED: "SOURCE_CHANGED",
+  /** `-32018`. No egress rule from the sender's group to the recipient's (§ 12). */
+  EGRESS_DENIED: "EGRESS_DENIED",
   /** `-32040`. `data.missing_sha256[]` (§ 8.9.3). */
   AUDIT_MISSING_BLOBS: "AUDIT_MISSING_BLOBS",
   /** `-32041`. Same `event_id`, different payload (§ 8.9.3). */
