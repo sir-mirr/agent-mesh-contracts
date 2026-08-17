@@ -10,6 +10,8 @@ import {
   INTERVAL_ADVANCE_FIXTURES,
   SCHEDULE_SPEC_FIXTURES,
 } from "../fixtures/index";
+import { ERROR_CLASS, MESH_ERROR, errorClassOf, isMeshErrorCode } from "./errors";
+import { MAILBOX_ERROR } from "./mailbox";
 import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
@@ -667,6 +669,43 @@ describe("REST signature preimage", () => {
       expect(() => restSignaturePreimage({
         method: "GET", path: "/x", kid: "k", nonce: "n", iat, bodySha256: "",
       })).toThrow();
+    }
+  });
+});
+
+/**
+ * The rule that protects a client pinned to an older tag.
+ *
+ * Every code in this file was once unknown to somebody. What decides whether
+ * that gap is harmless is the fallback, and only one direction of the mistake
+ * is recoverable.
+ */
+describe("an unknown code in this band", () => {
+  test("is permanent, so a pinned client stops rather than loops", () => {
+    // -32019 is inside the band and deliberately unassigned.
+    expect(isMeshErrorCode(-32019)).toBe(true);
+    expect(ERROR_CLASS[-32019]).toBeUndefined();
+    expect(errorClassOf(-32019)).toBe("permanent");
+  });
+
+  test("a known code still answers with its own class", () => {
+    expect(errorClassOf(MESH_ERROR.KEY_NOT_APPROVED)).toBe("wait-approval");
+    expect(errorClassOf(MESH_ERROR.AUDIT_BUSY)).toBe("transient");
+  });
+
+  test("out of band is somebody else's vocabulary and stays retryable", () => {
+    // A neighbouring protocol's code says nothing about this mesh, and
+    // quarantining on it would break a lane over a message it did understand.
+    expect(isMeshErrorCode(-32080)).toBe(false);
+    expect(errorClassOf(-32080)).toBe("transient");
+  });
+
+  test("every code this contract assigns is classified", () => {
+    // The rule above is a safety net, not a substitute. A released code that
+    // falls through to it is one this file forgot.
+    for (const code of [...Object.values(MESH_ERROR), ...Object.values(MAILBOX_ERROR)]) {
+      if (typeof code !== "number" || !isMeshErrorCode(code)) continue;
+      expect(ERROR_CLASS[code], `${code} has no class`).toBeDefined();
     }
   });
 });

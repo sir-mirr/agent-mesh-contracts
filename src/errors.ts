@@ -107,6 +107,33 @@ export function isMeshErrorCode(code: number): boolean {
  */
 export type ErrorClass = "transient" | "transient-operator" | "wait-approval" | "permanent";
 
+/**
+ * How to treat a code this contract has never heard of.
+ *
+ * **`permanent`, and the asymmetry is the argument.** A client pinned to an
+ * older tag meets a code released after it — and there is no version of that
+ * situation in which retrying forever is the safer guess:
+ *
+ * | wrong guess | cost |
+ * |---|---|
+ * | treated permanent, actually transient | one payload quarantined; a human sees it and replays |
+ * | treated transient, actually permanent | an unbounded loop against a refusal nobody can lift |
+ *
+ * The second is how a mesh takes itself down while every component reports
+ * that it is retrying normally. `client-claude` identified it from the other
+ * side (mail #189): between a hub emitting `-32017` and the client pinning the
+ * tag that names it, a `"transient"` fallback would have hot-looped against a
+ * refusal only an operator could clear.
+ *
+ * `permanent` does not mean discard — see `ErrorClass` above. It means stop,
+ * quarantine, and tell somebody, which is exactly what an unrecognised failure
+ * deserves.
+ *
+ * Out-of-band codes are somebody else's vocabulary and this says nothing about
+ * them; that is what `isMeshErrorCode` is for.
+ */
+export const UNKNOWN_MESH_CODE_CLASS: ErrorClass = "permanent";
+
 export const ERROR_CLASS: Record<number, ErrorClass> = {
   /**
    * An established socket still holds the identity (§ 8.1) and a contender
@@ -183,6 +210,20 @@ export const ERROR_CLASS: Record<number, ErrorClass> = {
  */
 export function errorClass(code: number, unknown: ErrorClass): ErrorClass {
   return ERROR_CLASS[code] ?? unknown;
+}
+
+/**
+ * The class, deciding for you when the code is in this contract's band.
+ *
+ * Prefer this to `errorClass(code, "transient")` at any retry decision. The
+ * two-argument form exists so a caller who genuinely knows better can say so —
+ * and "I have not thought about it" is the case that produces the loop
+ * described on `UNKNOWN_MESH_CODE_CLASS`.
+ */
+export function errorClassOf(code: number): ErrorClass {
+  const known = ERROR_CLASS[code];
+  if (known) return known;
+  return isMeshErrorCode(code) ? UNKNOWN_MESH_CODE_CLASS : "transient";
 }
 
 /** Why an identity has no usable key. Carried in `-32014` as `data.key_status`. */
