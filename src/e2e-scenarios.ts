@@ -89,8 +89,8 @@ export type Step =
  *
  * `{ signedBy }` is a **signed non-admin** caller: an ordinary participant with
  * an approved key, signing a REST envelope. Without it the whole authenticated
- * REST surface was unreachable from a scenario — `/api/v1/outbox` recall,
- * `/api/v1/inbox`, anything under § 8.10.1 that is not JSON-RPC — so those
+ * REST surface was unreachable from a scenario — `/api/v1/mailbox/out` recall,
+ * `/api/v1/mailbox/in`, anything under § 8.10.1 that is not JSON-RPC — so those
  * clauses were held by neither side's list while looking covered.
  */
 export type Caller = "admin" | "none" | { signedBy: string };
@@ -326,11 +326,11 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       // Before hand-over. The sender still owns it.
       { do: "receive", identity: "e2e-recall-to", expectCount: 2, bind: { taken: "messages.1.id" } },
       // After. The recipient holds it, so the sender no longer decides.
-      { do: "http", method: "DELETE", path: "/api/v1/outbox/{{taken}}",
+      { do: "http", method: "DELETE", path: "/api/v1/mailbox/out/{{taken}}",
         as: { signedBy: "e2e-recall-from" }, expect: { status: 409 } },
       // And someone else's message is not theirs to withdraw either — a 404,
       // not a 403, because the sender is not entitled to learn it exists.
-      { do: "http", method: "DELETE", path: "/api/v1/outbox/{{taken}}",
+      { do: "http", method: "DELETE", path: "/api/v1/mailbox/out/{{taken}}",
         as: { signedBy: "e2e-recall-to" }, expect: { status: 404 } },
     ],
   },
