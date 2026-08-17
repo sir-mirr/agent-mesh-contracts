@@ -10,12 +10,10 @@ import {
   INTERVAL_ADVANCE_FIXTURES,
   SCHEDULE_SPEC_FIXTURES,
 } from "../fixtures/index";
-import { ERROR_CLASS, MESH_ERROR, errorClassOf, isMeshErrorCode } from "./errors";
-import { MAILBOX_ERROR } from "./mailbox";
 import { deriveBlobKey, normalizeExtension, parseBlobKey } from "./blob-key";
 import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
-import { ERROR_CLASS, ERROR_DATA_CODE, JSON_RPC_PREDEFINED, MESH_ERROR, MESH_ERROR_RANGE, RETIRED_ERROR_CODES, errorClass, errorDataCode, isMeshErrorCode } from "./errors";
+import { ERROR_CLASS, ERROR_DATA_CODE, JSON_RPC_PREDEFINED, MESH_ERROR, MESH_ERROR_RANGE, RETIRED_ERROR_CODES, errorClass, errorClassOf, errorDataCode, isMeshErrorCode } from "./errors";
 import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR, PROVISION_ERROR } from "./mailbox";
 import { nextIntervalFire, parseDuration, parseScheduleSpec } from "./schedule";
 import {

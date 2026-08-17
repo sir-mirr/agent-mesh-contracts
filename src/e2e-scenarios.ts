@@ -25,9 +25,27 @@
  * read-back of a key that was just proposed — was unstatable.
  *
  * `bind` captures a dotted path out of a step's response under a name;
- * `{{name}}` anywhere in a later step's `path`, `body` or `expect.body` is
- * replaced by it. Runners also pre-bind `fingerprint:<identity>` whenever they
- * generate a key, because that value exists in the runner and in no response.
+ * `{{name}}` in **any string anywhere in a later step** is replaced by it —
+ * walk the step and substitute, do not enumerate fields. Runners also pre-bind
+ * `fingerprint:<identity>` whenever they generate a key, because that value
+ * exists in the runner and in no response.
+ *
+ * **This said `path`, `body` or `expect.body` — three fields — and was wrong.**
+ * `E2E-REPLY-001` puts `{{mailId}}` in `replyTo`, a fourth. A runner that
+ * implemented the list sent the literal `{{mailId}}` to the mesh, which then
+ * behaved correctly: no message has that id, so the send was not a reply, so it
+ * routed as an ordinary send and got pushed. The scenario failed on a push
+ * count, and **the failure pointed at the hub.** That is the expensive part —
+ * not that a field was missed, but that missing it accused the wrong side.
+ *
+ * The runner that passed did so because it walked the whole step, which is to
+ * say its implementation was wider than this sentence. Two copies of one fact,
+ * and the narrower copy was the one another agent built against.
+ *
+ * So there is no list here to fall behind a verb set that keeps growing. A
+ * name with no binding must throw wherever it appears; silently substituting
+ * empty is how a `DELETE /api/v1/mailbox/out/` with a blank id becomes a `404`
+ * a scenario reports as its expected refusal.
  *
  * **Substitution, not evaluation.** No arithmetic, no conditionals, no
  * comparison. The moment a scenario can compute, the list stops being a
