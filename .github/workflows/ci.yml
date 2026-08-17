@@ -1,0 +1,46 @@
+name: CI
+
+# This repository is the contract two other repositories build against, and it
+# had no CI at all until today. The consequence was not hypothetical: the
+# typecheck was red at HEAD on duplicate imports for at least four tags —
+# `bun test` did not care and nobody ran `tsc`, so v0.21.0 through v0.23.0 were
+# each cut over a failing check that existed and never ran.
+#
+# Tags are the unit of consumption here. A tag is immutable and other agents pin
+# it, so a broken one cannot be fixed in place — which is the argument for
+# checking every push and every tag rather than only `main`.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      # --frozen-lockfile: CI installs what the lockfile says or fails. A run
+      # that silently resolves something else is not testing what will ship.
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # First, and on its own step, because this is the check that was failing
+      # unnoticed. `bun test` passing while `tsc` fails is the exact shape.
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Tests
+        run: bun test
