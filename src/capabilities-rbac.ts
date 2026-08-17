@@ -46,6 +46,22 @@ export const CAPABILITY = {
   /** Mailbox depth per identity. No bodies, ever, on any route it gates. */
   MAILBOX_READ_DEPTH: "mailbox.read.depth",
   /**
+   * How much traffic a tenant received (§ 11.4).
+   *
+   * **Its own capability rather than folded into `audit.read.metadata`**, which
+   * would have been the smaller change and the wrong one. The audit trail
+   * answers *who did what*; this answers *how much arrived*. Somebody watching
+   * capacity or billing has no need of the first, and somebody reviewing the
+   * trail has no need of the second — and one capability answering both
+   * questions is the shape § 11 exists to undo.
+   *
+   * It also starts held by nobody, which a reused capability could not: every
+   * `audit.read.metadata` holder would have gained traffic figures the moment
+   * the route appeared. Widening later is one `POST /api/v1/admin/grants`;
+   * narrowing is taking something back from people who have already seen it.
+   */
+  TENANT_READ_STATS: "tenant.read.stats",
+  /**
    * Where each identity has been observed connecting from (§ 8.11).
    *
    * Its own capability rather than folded into `audit.read.metadata`: this is
