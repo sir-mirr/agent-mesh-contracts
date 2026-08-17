@@ -170,8 +170,18 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "connect", identity: "e2e-restart", expect: { error: null } },
       // Naming itself. A restart presents the key it already has, and that is
       // what `reuseKeyOf` means with no third party involved.
+      //
+      // **Both halves, because they fail separately.** A mutation that returned
+      // `pending` here while leaving the row approved was invisible to the
+      // `connect` below — the lane would work, and a lane that reads the
+      // response and waits for an operator would hang forever on a key it
+      // already holds. That is the same trap E2E-KEY-004 is about, arriving
+      // from the other direction.
       { do: "provision", identity: "e2e-restart", type: "ai-claude", reuseKeyOf: "e2e-restart",
-        expect: { status: 200 } },
+        expect: {
+          status: 200,
+          body: { "key.status": "approved", "key.fingerprint": "{{fingerprint:e2e-restart}}" },
+        } },
       { do: "connect", identity: "e2e-restart", expect: { error: null } },
     ],
   },
