@@ -43,8 +43,8 @@ export const CAPABILITY = {
    * the only thing that makes it acceptable at all.
    */
   AUDIT_READ_CONTENT: "audit.read.content",
-  /** Queue depth per identity. No bodies, ever, on any route it gates. */
-  INBOX_READ_DEPTH: "inbox.read.depth",
+  /** Mailbox depth per identity. No bodies, ever, on any route it gates. */
+  MAILBOX_READ_DEPTH: "mailbox.read.depth",
   /**
    * Where each identity has been observed connecting from (§ 8.11).
    *
