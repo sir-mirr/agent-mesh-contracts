@@ -34,6 +34,22 @@
  * statement about the contract and becomes a program that has to be debugged on
  * two implementations.
  *
+ * ## Nothing is skipped
+ *
+ * Three scenarios used to assert a trace by reading the platform's SQLite —
+ * an observed source recorded, a content read logged, a type change kept. Only
+ * one of the two runners has a database, so the other skipped them, and § 17.3
+ * made that legal.
+ *
+ * It was legal and it was a hole: those clauses were confirmed by exactly one
+ * implementation while both reported green. They now assert through the
+ * operator's own routes, which is the better question anyway — a trace written
+ * to a table nobody can query is not serving the operator it exists for.
+ *
+ * The lesson generalises. A verb only one side can run is a clause only one
+ * side holds, and the skip that makes it tolerable is what stops anybody
+ * noticing.
+ *
  * ## Every scenario cites its clause
  *
  * A scenario nobody can trace to the contract is a scenario asserting somebody's
@@ -62,9 +78,7 @@ export type Step =
   /** A REST call, for the surfaces that are not JSON-RPC. */
   | { do: "http"; method: "GET" | "POST" | "DELETE"; path: string; as?: Caller; body?: unknown; expect?: ExpectHttp; bind?: Record<string, string> }
   /** Let wall-clock time pass. Only for the scenarios about expiry. */
-  | { do: "sleep"; seconds: number }
-  /** Assert something about state the previous steps produced. */
-  | { do: "expectStored"; what: "sourceRecorded" | "auditReadLogged" | "typeChangeRecorded"; identity: string };
+  | { do: "sleep"; seconds: number };
 
 /**
  * Who makes an `http` call.
@@ -365,7 +379,8 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "provision", identity: "e2e-src", type: "ai-claude", key: true },
       { do: "approve", identity: "e2e-src" },
       { do: "connect", identity: "e2e-src" },
-      { do: "expectStored", what: "sourceRecorded", identity: "e2e-src" },
+      { do: "http", method: "GET", path: "/api/v1/admin/agent-sources?identity=e2e-src", as: "admin",
+        expect: { status: 200, body: { "sources.0.identity": "e2e-src" } } },
     ],
   },
   {
@@ -374,7 +389,13 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
     why: "The platform operator reads the trail and not the messages in it, and a content read leaves a trace. Without the trace, a tenant admin inside the tenant is the absence of a boundary rather than one.",
     steps: [
       { do: "http", method: "GET", path: "/api/v1/audit/events?limit=5", as: "admin", expect: { status: 200 } },
-      { do: "expectStored", what: "auditReadLogged", identity: "admin" },
+      // The read above had to leave this behind. Asserted through the operator's
+      // own route rather than against a table: a trace that exists in the store
+      // but cannot be queried is not serving the operator it was written for,
+      // and only one of the two runners can open the store at all.
+      { do: "http", method: "GET",
+        path: "/api/v1/audit/events?event_type=mesh.identity.audit_read&limit=1", as: "admin",
+        expect: { status: 200, body: { "events.0.event_type": "mesh.identity.audit_read" } } },
     ],
   },
   {
@@ -384,7 +405,10 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
     steps: [
       { do: "provision", identity: "e2e-mover", type: "ai-antigravity", key: true },
       { do: "provision", identity: "e2e-mover", type: "ai-claude", key: false, expect: { status: 200 } },
-      { do: "expectStored", what: "typeChangeRecorded", identity: "e2e-mover" },
+      { do: "http", method: "GET",
+        path: "/api/v1/audit/events?identity=e2e-mover&event_type=mesh.identity.type_changed&limit=1",
+        as: "admin",
+        expect: { status: 200, body: { "events.0.event_type": "mesh.identity.type_changed" } } },
     ],
   },
 ] as const;
