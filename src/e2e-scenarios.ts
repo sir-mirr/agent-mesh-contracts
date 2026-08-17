@@ -44,8 +44,26 @@ export type Step =
   | { do: "receive"; identity: string; ackPrevious?: boolean; expectCount?: number }
   /** A REST call, for the surfaces that are not JSON-RPC. */
   | { do: "http"; method: "GET" | "POST" | "DELETE"; path: string; as?: "admin" | "none"; body?: unknown; expect?: ExpectHttp }
+  /** Let wall-clock time pass. Only for the scenarios about expiry. */
+  | { do: "sleep"; seconds: number }
   /** Assert something about state the previous steps produced. */
   | { do: "expectStored"; what: "sourceRecorded" | "auditReadLogged" | "typeChangeRecorded"; identity: string };
+
+/**
+ * A mesh shaped differently from the default one.
+ *
+ * Only for behaviour a default deployment cannot show in test time — a lease
+ * lapsing is the case that forced this. Stated on the scenario rather than
+ * arranged by the runner because it is part of what the scenario *means*: "with
+ * a two-second lease, an unacknowledged batch comes back" is the claim, and a
+ * runner that quietly used thirty would be measuring something else.
+ *
+ * A scenario carrying this gets its own mesh and must therefore provision
+ * everything it names.
+ */
+export interface MeshRequirement {
+  receiveLeaseSeconds?: number;
+}
 
 export interface ExpectRpc {
   /** JSON-RPC error code, or `null` for success. */
@@ -66,6 +84,8 @@ export interface Scenario {
   clause: string;
   /** What breaks if it regresses. The sentence a reader needs a year from now. */
   why: string;
+  /** A mesh this scenario needs shaped differently. Absent means the shared one. */
+  mesh?: MeshRequirement;
   steps: Step[];
 }
 
@@ -142,16 +162,42 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
   {
     id: "E2E-RECEIVE-001",
     clause: "§ 8.10.1",
-    why: "Acknowledgement rides on the next fetch. A batch not settled comes back — losing that makes the socketless transport lossy in exactly the case it exists for.",
+    why: "A leased batch is invisible until the lease lapses. Without that, two callers for one identity — a reconnect overlapping its predecessor — each get the same messages and both act on them.",
     steps: [
       { do: "provision", identity: "e2e-lease", type: "ai-claude", key: true },
       { do: "approve", identity: "e2e-lease" },
       { do: "send", from: "e2e-a", to: "e2e-lease", content: "unacked" },
-      // Three fetches, because two cannot tell the two failures apart: a lease
-      // that never redelivers, and an ack that never settles.
       { do: "receive", identity: "e2e-lease", expectCount: 1 },
-      { do: "receive", identity: "e2e-lease", expectCount: 1 },
+      // Immediately again. Nothing, because the batch is leased — **not**
+      // because it was consumed. The first draft of this scenario expected the
+      // message back here, which is the destructive-read model § 8.10.1
+      // explicitly rejected; the run failed on correct behaviour.
+      { do: "receive", identity: "e2e-lease", expectCount: 0 },
       { do: "receive", identity: "e2e-lease", ackPrevious: true, expectCount: 0 },
+    ],
+  },
+  {
+    id: "E2E-RECEIVE-002",
+    clause: "§ 8.10.1",
+    why: "The at-least-once promise itself. A batch nobody acknowledged comes back when its lease lapses, and one acknowledged does not — a run that only checks the first half passes on a mailbox that never forgets anything.",
+    // Two seconds, because the default lease outlives any test that would wait
+    // for it. The number is the scenario's, not the runner's — see MeshRequirement.
+    mesh: { receiveLeaseSeconds: 2 },
+    steps: [
+      { do: "provision", identity: "e2e-lapse-src", type: "ai-claude", key: true },
+      { do: "provision", identity: "e2e-lapse", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-lapse-src" },
+      { do: "approve", identity: "e2e-lapse" },
+      { do: "send", from: "e2e-lapse-src", to: "e2e-lapse", content: "will lapse" },
+      { do: "receive", identity: "e2e-lapse", expectCount: 1 },
+      { do: "sleep", seconds: 3 },
+      // Back, unacknowledged. This is the half that makes the transport safe.
+      { do: "receive", identity: "e2e-lapse", expectCount: 1 },
+      { do: "receive", identity: "e2e-lapse", ackPrevious: true, expectCount: 0 },
+      { do: "sleep", seconds: 3 },
+      // And gone for good. Without this step the scenario passes on a mesh
+      // whose ack does nothing at all.
+      { do: "receive", identity: "e2e-lapse", expectCount: 0 },
     ],
   },
   {
