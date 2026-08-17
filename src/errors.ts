@@ -235,6 +235,12 @@ export const ERROR_DATA_CODE = {
    * where a client looping is correct, provided it honours `retry_after`.
    */
   RATE_LIMITED: "RATE_LIMITED",
+  /**
+   * `403`. `can_proxy` was sent to the unauthenticated provisioning route
+   * (§ 8.2). Refused rather than ignored: a caller that sends it and receives
+   * `200` believes it worked and finds out at the first proxied send.
+   */
+  CAN_PROXY_NOT_SELF_GRANTED: "CAN_PROXY_NOT_SELF_GRANTED",
   /** `-32040`. `data.missing_sha256[]` (§ 8.9.3). */
   AUDIT_MISSING_BLOBS: "AUDIT_MISSING_BLOBS",
   /** `-32041`. Same `event_id`, different payload (§ 8.9.3). */
