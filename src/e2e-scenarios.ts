@@ -26,8 +26,12 @@
 
 /** The verbs both runners implement. Deliberately few. */
 export type Step =
-  /** Register an identity. `key: true` generates one and remembers its fingerprint. */
-  | { do: "provision"; identity: string; type: string; key?: boolean; expect?: ExpectHttp }
+  /**
+   * Register an identity. `key: true` generates one and remembers its
+   * fingerprint; `reuseKeyOf` sends an *earlier* identity's public key, which
+   * is the only way to express the collision § 10.1 refuses.
+   */
+  | { do: "provision"; identity: string; type: string; key?: boolean; reuseKeyOf?: string; extra?: Record<string, unknown>; expect?: ExpectHttp }
   /** Approve the key most recently proposed for `identity`. */
   | { do: "approve"; identity: string }
   /** Deny or revoke it. `reason` is required for a revoke (§ 10.2). */
@@ -90,7 +94,7 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
     why: "A public key already held by another identity used to be answered with that other holder's status — the caller was told `approved` while holding no key at all.",
     steps: [
       { do: "provision", identity: "e2e-owner", type: "ai-claude", key: true },
-      { do: "provision", identity: "e2e-thief", type: "ai-claude", key: false,
+      { do: "provision", identity: "e2e-thief", type: "ai-claude", reuseKeyOf: "e2e-owner",
         expect: { status: 409, code: "KEY_HELD_BY_ANOTHER_IDENTITY" } },
     ],
   },
@@ -143,9 +147,11 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "provision", identity: "e2e-lease", type: "ai-claude", key: true },
       { do: "approve", identity: "e2e-lease" },
       { do: "send", from: "e2e-a", to: "e2e-lease", content: "unacked" },
+      // Three fetches, because two cannot tell the two failures apart: a lease
+      // that never redelivers, and an ack that never settles.
       { do: "receive", identity: "e2e-lease", expectCount: 1 },
-      { do: "receive", identity: "e2e-lease", ackPrevious: true, expectCount: 1 },
-      { do: "receive", identity: "e2e-lease", expectCount: 0 },
+      { do: "receive", identity: "e2e-lease", expectCount: 1 },
+      { do: "receive", identity: "e2e-lease", ackPrevious: true, expectCount: 0 },
     ],
   },
   {
