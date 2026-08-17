@@ -17,6 +17,23 @@
  * its own transport and the scenarios stay identical, which is the only way the
  * two runs are comparable.
  *
+ * ## Values a step cannot know in advance
+ *
+ * A message id is minted by the mesh. A fingerprint depends on key material the
+ * runner generated. Neither can be written into scenario data, and until a step
+ * could refer to one, every clause about *a particular message* — recall,
+ * read-back of a key that was just proposed — was unstatable.
+ *
+ * `bind` captures a dotted path out of a step's response under a name;
+ * `{{name}}` anywhere in a later step's `path`, `body` or `expect.body` is
+ * replaced by it. Runners also pre-bind `fingerprint:<identity>` whenever they
+ * generate a key, because that value exists in the runner and in no response.
+ *
+ * **Substitution, not evaluation.** No arithmetic, no conditionals, no
+ * comparison. The moment a scenario can compute, the list stops being a
+ * statement about the contract and becomes a program that has to be debugged on
+ * two implementations.
+ *
  * ## Every scenario cites its clause
  *
  * A scenario nobody can trace to the contract is a scenario asserting somebody's
@@ -41,13 +58,28 @@ export type Step =
   /** `mesh.send` over whichever transport the runner is exercising. */
   | { do: "send"; from: string; to: string; content: string; clientMessageId?: string; expect?: ExpectRpc }
   /** `mesh.receive` — leases a batch and settles the previous one. */
-  | { do: "receive"; identity: string; ackPrevious?: boolean; expectCount?: number }
+  | { do: "receive"; identity: string; ackPrevious?: boolean; expectCount?: number; bind?: Record<string, string> }
   /** A REST call, for the surfaces that are not JSON-RPC. */
-  | { do: "http"; method: "GET" | "POST" | "DELETE"; path: string; as?: "admin" | "none"; body?: unknown; expect?: ExpectHttp }
+  | { do: "http"; method: "GET" | "POST" | "DELETE"; path: string; as?: Caller; body?: unknown; expect?: ExpectHttp; bind?: Record<string, string> }
   /** Let wall-clock time pass. Only for the scenarios about expiry. */
   | { do: "sleep"; seconds: number }
   /** Assert something about state the previous steps produced. */
   | { do: "expectStored"; what: "sourceRecorded" | "auditReadLogged" | "typeChangeRecorded"; identity: string };
+
+/**
+ * Who makes an `http` call.
+ *
+ * `"none"` is a real case rather than an omission — § 9.2 has unauthenticated
+ * routes and a scenario about one has to be able to say so. `"admin"` is the
+ * operator session.
+ *
+ * `{ signedBy }` is a **signed non-admin** caller: an ordinary participant with
+ * an approved key, signing a REST envelope. Without it the whole authenticated
+ * REST surface was unreachable from a scenario — `/api/v1/outbox` recall,
+ * `/api/v1/inbox`, anything under § 8.10.1 that is not JSON-RPC — so those
+ * clauses were held by neither side's list while looking covered.
+ */
+export type Caller = "admin" | "none" | { signedBy: string };
 
 /**
  * A mesh shaped differently from the default one.
@@ -125,6 +157,41 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "provision", identity: "e2e-owner", type: "ai-claude", key: true },
       { do: "provision", identity: "e2e-thief", type: "ai-claude", reuseKeyOf: "e2e-owner",
         expect: { status: 409, code: "KEY_HELD_BY_ANOTHER_IDENTITY" } },
+    ],
+  },
+  {
+    id: "E2E-KEY-003",
+    clause: "§ 10.2",
+    // Proposed by client-claude, who run the lane this protects (mail #198).
+    why: "A lane re-registers on every restart with the key it already holds. If that knocked an approved key back to pending, every restart would need an operator, and the mesh would stop while nobody was watching.",
+    steps: [
+      { do: "provision", identity: "e2e-restart", type: "ai-claude", key: true, expect: { status: 201 } },
+      { do: "approve", identity: "e2e-restart" },
+      { do: "connect", identity: "e2e-restart", expect: { error: null } },
+      // Naming itself. A restart presents the key it already has, and that is
+      // what `reuseKeyOf` means with no third party involved.
+      { do: "provision", identity: "e2e-restart", type: "ai-claude", reuseKeyOf: "e2e-restart",
+        expect: { status: 200 } },
+      { do: "connect", identity: "e2e-restart", expect: { error: null } },
+    ],
+  },
+  {
+    id: "E2E-KEY-004",
+    clause: "§ 10.1, § 10.2",
+    // Also client-claude's (mail #198), and the assertion they could not write.
+    why: "The `key` object in a provisioning response is not evidence that this caller's key was recorded — a public key held by another identity answers with that holder's state. What a lane must trust is the read-back, and an unapproved key cannot sign for itself, so this route answers unauthenticated.",
+    steps: [
+      { do: "provision", identity: "e2e-readback", type: "ai-claude", key: true, expect: { status: 201 } },
+      // The point of the scenario. `status: 200` alone passes against a route
+      // returning an empty list, which is the shape this exists to refuse.
+      { do: "http", method: "GET", path: "/api/v1/agents/e2e-readback/keys", as: "none",
+        expect: {
+          status: 200,
+          body: {
+            "keys.0.fingerprint": "{{fingerprint:e2e-readback}}",
+            "keys.0.status": "pending",
+          },
+        } },
     ],
   },
   {
@@ -207,6 +274,33 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       // And gone for good. Without this step the scenario passes on a mesh
       // whose ack does nothing at all.
       { do: "receive", identity: "e2e-lapse", expectCount: 0 },
+    ],
+  },
+  {
+    id: "E2E-RECALL-001",
+    clause: "§ 8.10.1",
+    // The clause client-claude could not state (mail #198): it needs a signed
+    // non-admin caller and a message id minted by the mesh, and the vocabulary
+    // had neither.
+    why: "Recall withdraws a message the recipient has not taken yet, and stops once they have. A recall that still succeeded after hand-over would let a sender delete from someone else's mailbox, and the recipient has already acted on it.",
+    steps: [
+      { do: "provision", identity: "e2e-recall-from", type: "ai-claude", key: true },
+      { do: "provision", identity: "e2e-recall-to", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-recall-from" },
+      { do: "approve", identity: "e2e-recall-to" },
+      { do: "send", from: "e2e-recall-from", to: "e2e-recall-to", content: "recall me",
+        expect: { error: null } },
+      { do: "send", from: "e2e-recall-from", to: "e2e-recall-to", content: "too late",
+        expect: { error: null } },
+      // Before hand-over. The sender still owns it.
+      { do: "receive", identity: "e2e-recall-to", expectCount: 2, bind: { taken: "messages.1.id" } },
+      // After. The recipient holds it, so the sender no longer decides.
+      { do: "http", method: "DELETE", path: "/api/v1/outbox/{{taken}}",
+        as: { signedBy: "e2e-recall-from" }, expect: { status: 409 } },
+      // And someone else's message is not theirs to withdraw either — a 404,
+      // not a 403, because the sender is not entitled to learn it exists.
+      { do: "http", method: "DELETE", path: "/api/v1/outbox/{{taken}}",
+        as: { signedBy: "e2e-recall-to" }, expect: { status: 404 } },
     ],
   },
   {
