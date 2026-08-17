@@ -228,6 +228,13 @@ export const ERROR_DATA_CODE = {
   SOURCE_CHANGED: "SOURCE_CHANGED",
   /** `-32018`. No egress rule from the sender's group to the recipient's (§ 12). */
   EGRESS_DENIED: "EGRESS_DENIED",
+  /**
+   * `429`. Too many requests (§ 14). Carries `retry_after` in whole seconds.
+   *
+   * Transient by construction — the bucket refills — which is the one case
+   * where a client looping is correct, provided it honours `retry_after`.
+   */
+  RATE_LIMITED: "RATE_LIMITED",
   /** `-32040`. `data.missing_sha256[]` (§ 8.9.3). */
   AUDIT_MISSING_BLOBS: "AUDIT_MISSING_BLOBS",
   /** `-32041`. Same `event_id`, different payload (§ 8.9.3). */
