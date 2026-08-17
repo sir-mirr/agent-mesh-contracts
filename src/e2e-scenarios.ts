@@ -388,34 +388,41 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
     id: "E2E-REPLY-001",
     clause: "§ 8.2a",
     // The clause that was checked by one implementation alone, which § 17.3 is
-    // explicit is not enough. It needed a step that holds a socket open across
-    // later steps; the shape was proposed by client-claude (mail #242) and sat
-    // recorded until now.
-    why: "A reply to mail must not be pushed because the recipient happens to be holding a socket. That puts half a thread on a socket a correspondent was briefly holding and leaves them to find the rest — one end present is exactly the case the mailbox exists for.",
+    // explicit is not enough.
+    //
+    // **The arrangement is the whole scenario, and the first draft had it
+    // backwards.** § 8.2a only bites when the reply's *recipient* is live and
+    // its *sender* is not — that is the moment a hub is tempted to push, and
+    // the moment pushing puts half a thread on a socket somebody was briefly
+    // holding. With the recipient absent instead, mail and mesh agree and a
+    // broken rule passes: the first version arranged exactly that, and the
+    // mutation went straight through it.
+    why: "A reply to mail must not be pushed because the recipient happens to be holding a socket. One end present is exactly the case the mailbox exists for, and half a thread on a socket somebody was briefly holding is what pushing produces.",
     steps: [
       { do: "provision", identity: "e2e-reply-a", type: "ai-claude", key: true },
       { do: "provision", identity: "e2e-reply-b", type: "ai-claude", key: true },
       { do: "approve", identity: "e2e-reply-a" },
       { do: "approve", identity: "e2e-reply-b" },
 
-      // `a` sends by mail — the socketless route, so `via` is mailbox — while
-      // holding no socket of its own.
+      // `a` sends by mail — the socketless route, so the row records `mailbox`.
       { do: "http", method: "POST", path: "/api/v1/mailbox/out", as: { signedBy: "e2e-reply-a" },
         body: { to: "e2e-reply-b", content: "by mail" }, expect: { status: 200 },
         bind: { mailId: "id" } },
+      { do: "receive", identity: "e2e-reply-b", expectCount: 1 },
 
-      // `b` comes online and takes it. Now the recipient of the *reply* (`a`)
-      // is the one who is absent.
-      { do: "connect", identity: "e2e-reply-b", hold: true, expect: { error: null } },
-      { do: "expectPushed", identity: "e2e-reply-b", count: 1 },
+      // Now the reply's recipient comes online, and its sender does not. This
+      // is the only arrangement in which the rule and its absence differ.
+      { do: "connect", identity: "e2e-reply-a", hold: true, expect: { error: null } },
 
-      // `b` replies to it while `a` holds nothing. The reply must wait in the
-      // mailbox even though `b` is live — one end present is not both.
       { do: "send", from: "e2e-reply-b", to: "e2e-reply-a", content: "answered",
         replyTo: "{{mailId}}", expect: { error: null } },
+
+      // Nothing pushed, though `a` is right there holding a socket.
+      { do: "expectPushed", identity: "e2e-reply-a", count: 0 },
+      // And waiting in the mailbox, which is where the conversation was.
       { do: "receive", identity: "e2e-reply-a", expectCount: 1 },
 
-      { do: "disconnect", identity: "e2e-reply-b" },
+      { do: "disconnect", identity: "e2e-reply-a" },
     ],
   },
   {
