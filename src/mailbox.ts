@@ -44,6 +44,15 @@ export interface MailboxCapabilities {
   receive_lease_seconds: number;
   /** How long a `client_message_id` is remembered for deduplication. */
   send_dedup_window_seconds: number;
+  /**
+   * Silence after which a send from an unseen place is refused (§ 8.11.2).
+   *
+   * **Not derived, and does not claim to be.** It is a deployment setting, and
+   * a client should read it rather than assume — the number here is a round
+   * one honestly labelled, not a figure argued from how long a stolen key goes
+   * unnoticed. `0` disables the refusal; observation is recorded regardless.
+   */
+  dormancy_seconds: number;
 }
 
 export const MAILBOX_CAPABILITY_DEFAULTS: MailboxCapabilities = {
@@ -54,6 +63,7 @@ export const MAILBOX_CAPABILITY_DEFAULTS: MailboxCapabilities = {
   // short enough that the table does not become a permanent record of every
   // message ever sent.
   send_dedup_window_seconds: 86_400,
+  dormancy_seconds: 10_800,
 };
 
 /** `mesh.receive` params (SPEC § 8.10.1). */
@@ -113,6 +123,15 @@ export type ProvisionErrorCode = (typeof PROVISION_ERROR)[keyof typeof PROVISION
 export const MAILBOX_ERROR = {
   /** Same `client_message_id`, different message. Permanent — do not retry. */
   SEND_CONFLICT: -32015,
+  /**
+   * `-32017`. A send from an identity that has been silent past the dormancy
+   * window, arriving from a place it has not been seen (SPEC § 8.11.2).
+   *
+   * **Permanent until an operator acts** — a retry from the same place fails
+   * identically, and the lane should say so rather than loop. Receiving is
+   * unaffected: a lane that cannot receive cannot be told why it is blocked.
+   */
+  SOURCE_CHANGED: -32017,
 } as const;
 
 /**
@@ -147,6 +166,7 @@ export interface SurfaceCapabilities {
  * | `2`     | `GET /api/v1/agents/{identity}/keys` reports the registered `type` |
  * | `3`     | `POST /api/v1/agents` refuses a `public_key` held by another identity |
  * | `4`     | `capabilities.surface.observed_source` reports how a peer's address is learned |
+ * | `5`     | dormant sends from an unseen place are refused `-32017` (§ 8.11.2) |
  *
  * The bump exists because **the alternative is inferring a version from a
  * missing field, and absence is ambiguous.** A hub too old to report `type`
@@ -161,7 +181,7 @@ export interface SurfaceCapabilities {
  * whole document at minor granularity (§ 13), so it does not move for a field.
  */
 export const SURFACE_CAPABILITY_DEFAULTS: SurfaceCapabilities = {
-  version: 4,
+  version: 5,
   // Overridden per deployment; this is the safe default, not a guess about
   // where the hub is running.
   observed_source: "socket",
