@@ -127,8 +127,15 @@ export interface ExpectHttp {
    *
    * Deliberately not a full matcher language. A scenario that can assert
    * anything about a response becomes a second copy of the schema, and then the
-   * list drifts from the contract it was meant to hold. This exists for one
-   * shape: a route that *advertises* a number the rest of the mesh must obey.
+   * list drifts from the contract it was meant to hold.
+   *
+   * **`null` means absent or null**, which is how a scenario says a filter
+   * returned nothing. Without it, "this query matches no rows" was unstatable,
+   * and a filter that stopped filtering could only be caught by what happened to
+   * come back first — order-dependent, and therefore passing or failing on which
+   * other scenarios had run. `client-claude` hit exactly that (mail #223): their
+   * equivalent check passed against a runner that had stopped filtering
+   * entirely, because on a solo mesh the row it wanted was the only one there.
    */
   body?: Record<string, string | number | boolean | null>;
 }
@@ -396,6 +403,14 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "http", method: "GET",
         path: "/api/v1/audit/events?event_type=mesh.identity.audit_read&limit=1", as: "admin",
         expect: { status: 200, body: { "events.0.event_type": "mesh.identity.audit_read" } } },
+      // And the same filter asked something that cannot match. **This is the
+      // order-independent half.** The step above catches an ignored filter only
+      // while some other event happens to sort first; on a mesh where this
+      // scenario runs alone, its own read is the oldest row and the assertion
+      // passes against a route that filters nothing.
+      { do: "http", method: "GET",
+        path: "/api/v1/audit/events?event_type=mesh.identity.no_such_event&limit=1", as: "admin",
+        expect: { status: 200, body: { "events.0": null } } },
     ],
   },
   {
