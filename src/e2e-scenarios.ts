@@ -76,6 +76,15 @@ export interface ExpectHttp {
   status: number;
   /** Body `code` field, for the refusals that carry one. */
   code?: string;
+  /**
+   * Dotted paths into the body and the values they must hold.
+   *
+   * Deliberately not a full matcher language. A scenario that can assert
+   * anything about a response becomes a second copy of the schema, and then the
+   * list drifts from the contract it was meant to hold. This exists for one
+   * shape: a route that *advertises* a number the rest of the mesh must obey.
+   */
+  body?: Record<string, string | number | boolean | null>;
 }
 
 export interface Scenario {
@@ -198,6 +207,19 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       // And gone for good. Without this step the scenario passes on a mesh
       // whose ack does nothing at all.
       { do: "receive", identity: "e2e-lapse", expectCount: 0 },
+    ],
+  },
+  {
+    id: "E2E-CAP-001",
+    clause: "§ 8.10.1, § 7",
+    why: "A deployment that shortened its receive lease went on advertising the default, so every client sized its retry loop on a number the hub had stopped honouring. Nothing failed — ids are stable and messages came back — the caller simply polled on a cadence nobody asked for.",
+    // The same two-second mesh. The point is that what the route says and what
+    // the mesh does are one number; measuring that needs a deployment where the
+    // configured value differs from the constant.
+    mesh: { receiveLeaseSeconds: 2 },
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "mailbox.receive_lease_seconds": 2 } } },
     ],
   },
   {
