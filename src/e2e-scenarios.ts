@@ -535,4 +535,824 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 200, body: { "events.0.event_type": "mesh.identity.type_changed" } } },
     ],
   },
+  {
+    id: "E2E-AUTH-OWNED-001",
+    clause: "§ 11.3, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agents/owned", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-OWNED-002",
+    clause: "§ 11.3",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `key.approve` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agents/owned", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GROUPS-001",
+    clause: "§ 12, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/groups", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GROUPS-002",
+    clause: "§ 12",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `group.manage` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/groups", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-PENDING-001",
+    clause: "§ 10.2, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/keys/pending", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-PENDING-002",
+    clause: "§ 10.2",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `key.approve` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/keys/pending", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TELEM-001",
+    clause: "§ 11.0, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/telemetry", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TELEM-002",
+    clause: "§ 11.0",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `audit.read.metadata` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/telemetry", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TENANTS-001",
+    clause: "§ 11.3, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/tenants", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TENANTS-002",
+    clause: "§ 11.3",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `tenant.read.stats` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/tenants", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRANTS-001",
+    clause: "§ 7, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/grants", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRANTS-002",
+    clause: "§ 7",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `role.grant` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/grants", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-SOURCES-001",
+    clause: "§ 8.11, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agent-sources", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-SOURCES-002",
+    clause: "§ 8.11",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `source.read` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agent-sources", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-DEPTH-001",
+    clause: "§ 8.10.1, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/mailbox", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-DEPTH-002",
+    clause: "§ 8.10.1",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `mailbox.read.depth` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/mailbox", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TYPES-001",
+    clause: "§ 8.9.5, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agent-types", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TYPES-002",
+    clause: "§ 8.9.5",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `agent.provision` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agent-types", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-USERS-001",
+    clause: "§ 7, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The refusal is the only part a caller without credentials can observe, so it is the only part a scenario on this side can hold — and a route that lost its gate looks identical to one that never had it until somebody without a session asks.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/users", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-USERS-002",
+    clause: "§ 7",
+    why: "The other half of the pair. Without it the refusal above is satisfied by a route that refuses everyone, including the operator holding `user.admit` — which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/users", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-OWNERS-001",
+    clause: "§ 8.11, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `agent.provision` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agents/e2e-src/owners", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-KEYONE-001",
+    clause: "§ 10.2, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. Key approval in particular: a route that approves keys without a session lets anyone admit an agent to the mesh. The holder-passes half for `key.approve` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/keys/e2e-src", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-DEPTHONE-001",
+    clause: "§ 8.10.1, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `mailbox.read.depth` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/mailbox/e2e-src", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-CHATAUD-001",
+    clause: "§ 11.0, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `audit.read.content` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/chat-audits", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AIUSAGE-001",
+    clause: "§ 11.0, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `audit.read.metadata` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/ai-usage", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-PENDLIST-001",
+    clause: "§ 10.2, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. Key approval in particular: a route that approves keys without a session lets anyone admit an agent to the mesh. The holder-passes half for `key.approve` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/pending", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRPNEW-001",
+    clause: "§ 12, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `group.manage` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/groups", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRPMEM-001",
+    clause: "§ 12, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `group.manage` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/groups/e2e-walled/members", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRPEGR-001",
+    clause: "§ 12, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `group.manage` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/groups/e2e-walled/egress", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRANTNEW-001",
+    clause: "§ 7, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `role.grant` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/grants", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-USERNEW-001",
+    clause: "§ 7, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `user.admit` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/users", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TYPENEW-001",
+    clause: "§ 8.9.5, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `agent.provision` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/agent-types", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-PROXY-001",
+    clause: "§ 8.2, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `agent.provision` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/agents/e2e-src/can-proxy", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-APPROVE-001",
+    clause: "§ 10.2, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. Key approval in particular: a route that approves keys without a session lets anyone admit an agent to the mesh. The holder-passes half for `key.approve` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/approve", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-DENY-001",
+    clause: "§ 10.2, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. Key approval in particular: a route that approves keys without a session lets anyone admit an agent to the mesh. The holder-passes half for `key.approve` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/deny", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRANTDEL-001",
+    clause: "§ 7, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `role.grant` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "DELETE", path: "/api/v1/admin/grants", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-EGRDEL-001",
+    clause: "§ 12, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `group.manage` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "DELETE", path: "/api/v1/admin/groups/e2e-walled/egress/x", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TYPEDEL-001",
+    clause: "§ 8.9.5, § 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `agent.provision` is held by its sibling scenario on the same capability; this one holds the refusal, which is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "DELETE", path: "/api/v1/admin/agent-types/ai-claude", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-LIMITS-001",
+    clause: "§ 9.2",
+    why: "An unauthenticated route is a decision, not an oversight, and the only way to keep it one is to say so. A deployment that put a session in front of this would break every client sizing its retry loop before it has a key — which is the moment it needs the numbers.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/limits", as: "none",
+        expect: { status: 200, body: { "ok": true } } },
+    ],
+  },
+  {
+    id: "E2E-UNSIGNED-001",
+    clause: "§ 8.1, § 9.2",
+    why: "The authenticated REST surface has to refuse an unsigned caller, and the refusal has to be observable from outside. A hub that stopped verifying signatures on this route would pass every other scenario in this file, because every other scenario signs correctly.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/mailbox/out", as: "none",
+        body: { to: "e2e-badparam", content: "no signature" },
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-BADPARAM-001",
+    clause: "§ 8.2",
+    why: "A send with no recipient is malformed rather than refused, and the two carry different retry advice: a client that reads `400` as `403` asks an operator for a grant it already has. The mapping from JSON-RPC code to status is contract, not implementation detail.",
+    steps: [
+      { do: "provision", identity: "e2e-badparam", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-badparam" },
+      { do: "http", method: "POST", path: "/api/v1/mailbox/out", as: { signedBy: "e2e-badparam" },
+        body: { content: "no recipient" },
+        expect: { status: 400 } },
+    ],
+  },
+  {
+    id: "E2E-HISTORY-001",
+    clause: "§ 8.10.1",
+    why: "History is the surface an operator reads after the fact, and an unsigned reader must not have it: the bodies are there. A route that answered anyone would leak every message in the mesh while every delivery scenario stayed green.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/mailbox/history", as: "none",
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-METHOD-001",
+    clause: "§ 9.2",
+    why: "A route that answers the wrong method answers it with whatever the handler below does — a POST to a read route is a write nobody wrote. `405` is the only answer that leaves the caller able to fix the call.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/capabilities", as: "none", body: {},
+        expect: { status: 405 } },
+    ],
+  },
+  {
+    id: "E2E-CAP-002",
+    clause: "§ 7, § 11.0",
+    why: "The audit limits a client sizes its batches on come from the same route as the mailbox window, and were left at the constant once while the value beside them was not. A client that batches on a limit the hub stopped honouring has every append refused at a size the route told it was fine.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "audit.schema_version_max": 1 } } },
+    ],
+  },
+  {
+    id: "E2E-CAP-003",
+    clause: "§ 8.10.1",
+    why: "Dormancy is what turns a quiet participant into an absent one, and a client that reads a stale value keeps a socket it believes is live. It sits beside `receive_lease_seconds`, which was the one that drifted.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "mailbox.dormancy_seconds": 10800 } } },
+    ],
+  },
+  {
+    id: "E2E-REVOKED-001",
+    clause: "§ 10.2, § 8.1",
+    why: "A revoked key must stop working immediately, not at the next restart. The refusal has to name the revocation rather than a generic failure, because a client told only `failed` retries and a client told `revoked` stops and asks a person.",
+    steps: [
+      { do: "provision", identity: "e2e-revoked-c", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-revoked-c" },
+      { do: "connect", identity: "e2e-revoked-c", expect: { error: null } },
+      { do: "revoke", identity: "e2e-revoked-c", reason: "e2e revocation" },
+      { do: "connect", identity: "e2e-revoked-c", expect: { error: -32014, dataCode: "KEY_NOT_APPROVED" } },
+    ],
+  },
+  {
+    id: "E2E-NOKEY-001",
+    clause: "§ 10.1, § 8.1",
+    why: "An identity registered without a key is a name with nobody behind it. Connecting as one must be refused on the key rather than on the name, or an operator reading the refusal goes looking for a registration that is already there.",
+    steps: [
+      { do: "provision", identity: "e2e-keyless", type: "ai-claude", key: false },
+      { do: "connect", identity: "e2e-keyless", expect: { error: -32014, dataCode: "KEY_NOT_APPROVED" } },
+    ],
+  },
+  {
+    id: "E2E-LIMIT-BATCH",
+    clause: "§ 8.10.1, § 7",
+    why: "A client that batches above what the hub honours has every oversized receive refused at a number the route told it was fine. The value is declared in the contract and reported by the route; a deployment that reports something else is telling clients to size on a number it will not honour.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "mailbox.max_receive_batch": 200 } } },
+    ],
+  },
+  {
+    id: "E2E-LIMIT-DEDUP",
+    clause: "§ 8.2, § 7",
+    why: "The window a `client_message_id` is remembered for is what makes a retry safe. A sender that believes it is longer than it is turns a retry into a second message. The value is declared in the contract and reported by the route; a deployment that reports something else is telling clients to size on a number it will not honour.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "mailbox.send_dedup_window_seconds": 86400 } } },
+    ],
+  },
+  {
+    id: "E2E-LIMIT-BLOB",
+    clause: "§ 11.0, § 7",
+    why: "An uploader sizing a part on a stale limit fails at the end of a long upload rather than before it starts. The value is declared in the contract and reported by the route; a deployment that reports something else is telling clients to size on a number it will not honour.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "audit.max_blob_bytes": 104857600 } } },
+    ],
+  },
+  {
+    id: "E2E-LIMIT-ATTACH",
+    clause: "§ 11.0, § 7",
+    why: "An event assembled above the limit is refused after the blobs are already uploaded, which is the expensive order to find out in. The value is declared in the contract and reported by the route; a deployment that reports something else is telling clients to size on a number it will not honour.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "audit.max_attachments_per_event": 32 } } },
+    ],
+  },
+  {
+    id: "E2E-LIMIT-ATTBYTE",
+    clause: "§ 11.0, § 7",
+    why: "Per-event total, distinct from per-blob: a caller under the blob limit on every part can still be over this one, and only this number says where. The value is declared in the contract and reported by the route; a deployment that reports something else is telling clients to size on a number it will not honour.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "audit.max_attachments_bytes_per_event": 268435456 } } },
+    ],
+  },
+  {
+    id: "E2E-LIMIT-INFLIGHT",
+    clause: "§ 11.0, § 7",
+    why: "Concurrency the hub will accept. A client that opens more sees refusals it reads as failures rather than as backpressure. The value is declared in the contract and reported by the route; a deployment that reports something else is telling clients to size on a number it will not honour.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "audit.max_inflight_appends": 4 } } },
+    ],
+  },
+  {
+    id: "E2E-LIMIT-UPTIME",
+    clause: "§ 11.0, § 7",
+    why: "How long a grant stays usable. A client that assumes longer uploads into a window that closed and cannot tell that from a network fault. The value is declared in the contract and reported by the route; a deployment that reports something else is telling clients to size on a number it will not honour.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/capabilities", as: "none",
+        expect: { status: 200, body: { "audit.upload_timeout_seconds": 180 } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-CHATAUD-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half for `audit.read.content`. Without it the refusal beside it is satisfied by a route that refuses the operator too, which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/chat-audits", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AIUSAGE-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half for `audit.read.metadata`. Without it the refusal beside it is satisfied by a route that refuses the operator too, which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/ai-usage", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-PENDLIST-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half for `key.approve`. Without it the refusal beside it is satisfied by a route that refuses the operator too, which is a broken route reported as a working guard.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/pending", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUDIT-002",
+    clause: "§ 11.0",
+    why: "A filter that stopped filtering can only be caught by a query that must match nothing. Asserting a row came back proves the route answers; asserting none did proves it answered the question that was asked.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/audit/events?identity=e2e-no-such-identity-at-all&limit=5", as: "admin",
+        expect: { status: 200, body: { "events.0": null } } },
+    ],
+  },
+  {
+    id: "E2E-AUDIT-003",
+    clause: "§ 11.0",
+    why: "An event id that does not exist has to be a miss rather than an error: an operator paging through a trace hits ids that have aged out, and a `500` there reads as the audit surface being down.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/audit/events/evt_00000000000000000000000000000000", as: "admin",
+        expect: { status: 404 } },
+    ],
+  },
+  {
+    id: "E2E-AUDIT-004",
+    clause: "§ 11.0, § 9.2",
+    why: "The audit trace carries who said what. A route that answered it without a session would publish every message in the mesh, and every delivery scenario would stay green while it did.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/audit/events?limit=1", as: "none",
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-INBOX-001",
+    clause: "§ 8.10.1, § 9.2",
+    why: "Receiving leases a batch and hands over bodies. An unsigned caller that could do it would read another participant's mail, and the send side would look perfectly correct while it happened.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/mailbox/in", as: "none", body: {},
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-RECALLAUTH-001",
+    clause: "§ 8.10.1, § 9.2",
+    why: "Recall deletes. Unsigned, it is a delete anyone can issue against any message id they can guess, and the sender it was taken from has no record that it happened.",
+    steps: [
+      { do: "http", method: "DELETE", path: "/api/v1/mailbox/out/msg_0000000000000000", as: "none",
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-DEDUP-001",
+    clause: "§ 8.2",
+    why: "A sender that retries with the same `client_message_id` must not produce a second message. Without this the retry advice in every refusal is unsafe to follow, because following it duplicates.",
+    steps: [
+      { do: "provision", identity: "e2e-dedup-a", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-dedup-a" },
+      { do: "provision", identity: "e2e-dedup-b", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-dedup-b" },
+      { do: "send", from: "e2e-dedup-a", to: "e2e-dedup-b", content: "once", clientMessageId: "e2e-dedup-key", expect: { error: null } },
+      { do: "send", from: "e2e-dedup-a", to: "e2e-dedup-b", content: "once", clientMessageId: "e2e-dedup-key", expect: { error: null } },
+      { do: "receive", identity: "e2e-dedup-b", expectCount: 1 },
+    ],
+  },
+  {
+    id: "E2E-SELF-001",
+    clause: "§ 8.2",
+    why: "Addressing yourself is not a special case anybody wrote down, and both answers are defensible — what is not defensible is the two implementations differing, because a lane that talks to itself is how several runtimes poll for work.",
+    steps: [
+      { do: "provision", identity: "e2e-self", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-self" },
+      { do: "send", from: "e2e-self", to: "e2e-self", content: "to me", expect: { error: null } },
+      { do: "receive", identity: "e2e-self", expectCount: 1 },
+    ],
+  },
+  {
+    id: "E2E-PENDING-001",
+    clause: "§ 8.2a",
+    why: "Mail addressed to a participant with no live socket has to wait rather than fail. A hub that refused it would make every restart lose whatever was in flight, and the sender would read the refusal as the recipient being unknown.",
+    steps: [
+      { do: "provision", identity: "e2e-away-src", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-away-src" },
+      { do: "provision", identity: "e2e-away", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-away" },
+      { do: "send", from: "e2e-away-src", to: "e2e-away", content: "while you were out", expect: { error: null } },
+      { do: "connect", identity: "e2e-away", expectDelivered: 1 },
+    ],
+  },
+  {
+    id: "E2E-AUTH-KEYSTREAM-001",
+    clause: "§ 9.2",
+    why: "A stream is a session held open; one that opens without a session keeps publishing after the operator who should have been refused walks away. The holder-passes half for `key.approve` is held by its sibling.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/keys/stream", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-BEHAVIOUR-001",
+    clause: "§ 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `audit.read.metadata` is held by its sibling scenario.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/telemetry/behaviour", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AUDAGENTS-001",
+    clause: "§ 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `audit.read.content` is held by its sibling scenario.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/chat-audits/agents", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AUDSTREAM-001",
+    clause: "§ 9.2",
+    why: "A stream is a session held open; one that opens without a session keeps publishing after the operator who should have been refused walks away. The holder-passes half for `audit.read.content` is held by its sibling.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/chat-audits/stream", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-USAGESTRM-001",
+    clause: "§ 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `audit.read.metadata` is held by its sibling scenario.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/ai-usage/stream", as: "none",
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-PAIRCODE-001",
+    clause: "§ 9.2",
+    why: "An operator route that stops requiring a session answers everyone. The holder-passes half for `user.admit` is held by its sibling scenario.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/pairing-codes", as: "none", body: {},
+        expect: { status: 401, body: { "error": "Unauthorized" } } },
+    ],
+  },
+  {
+    id: "E2E-HEALTH-001",
+    clause: "§ 9.2",
+    why: "Health has to answer without credentials or nothing can watch the mesh from outside it. Putting a session in front of this is the change that makes an outage invisible to the thing meant to notice outages.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/health", as: "none",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-DENY-001",
+    clause: "§ 10.2, § 8.1",
+    why: "A denied key and a pending one are both `not approved`, and an agent told the wrong one either waits forever for a decision already made or asks again for one still open. The distinction is carried in `data`, which is why the refusal has to name it.",
+    steps: [
+      { do: "provision", identity: "e2e-denied", type: "ai-claude", key: true },
+      { do: "revoke", identity: "e2e-denied", reason: "e2e denial" },
+      { do: "connect", identity: "e2e-denied", expect: { error: -32014, dataCode: "KEY_NOT_APPROVED" } },
+    ],
+  },
+  {
+    id: "E2E-RECALLOWN-001",
+    clause: "§ 8.10.1",
+    why: "Recall is the sender's, not anyone's. A participant that could delete another's message would be able to erase what it was told, and the audit trace would be the only place the message ever existed.",
+    steps: [
+      { do: "provision", identity: "e2e-recall-other", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-recall-other" },
+      { do: "http", method: "DELETE", path: "/api/v1/mailbox/out/msg_not_a_real_id", as: { signedBy: "e2e-recall-other" },
+        expect: { status: 404 } },
+    ],
+  },
+  {
+    id: "E2E-PUSH-001",
+    clause: "§ 8.2a",
+    why: "A live socket must receive without asking, and the count has to be since the last check: a cumulative counter would make this pass on traffic another scenario sent, which is how a shared mesh turns an assertion into an accident. Held sockets do not outlive a scenario, so the whole sequence belongs in one.",
+    steps: [
+      { do: "provision", identity: "e2e-push-src", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-push-src" },
+      { do: "provision", identity: "e2e-push-dst", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-push-dst" },
+      { do: "connect", identity: "e2e-push-dst", hold: true },
+      { do: "send", from: "e2e-push-src", to: "e2e-push-dst", content: "live", expect: { error: null } },
+      { do: "expectPushed", identity: "e2e-push-dst", count: 1 },
+      { do: "send", from: "e2e-push-src", to: "e2e-push-dst", content: "second", expect: { error: null } },
+      { do: "expectPushed", identity: "e2e-push-dst", count: 1 },
+      { do: "disconnect", identity: "e2e-push-dst" },
+      { do: "send", from: "e2e-push-src", to: "e2e-push-dst", content: "third", expect: { error: null } },
+      // One, not three. The two pushed while the socket was held were
+      // **delivered**; only the one sent after it closed is waiting. A hub that
+      // queued a copy of everything it pushed would answer three here, and the
+      // recipient would read every live message twice.
+      { do: "receive", identity: "e2e-push-dst", expectCount: 1 },
+    ],
+  },
+  {
+    id: "E2E-ACK-001",
+    clause: "§ 8.10.1",
+    why: "An unacknowledged batch comes back; an acknowledged one does not. A receive that settled nothing looks identical until the same message arrives twice, which is the failure a lane cannot recover from on its own.",
+    steps: [
+      { do: "provision", identity: "e2e-ack-src", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-ack-src" },
+      { do: "provision", identity: "e2e-ack-dst", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-ack-dst" },
+      { do: "send", from: "e2e-ack-src", to: "e2e-ack-dst", content: "settle me", expect: { error: null } },
+      { do: "receive", identity: "e2e-ack-dst", expectCount: 1 },
+      { do: "receive", identity: "e2e-ack-dst", ackPrevious: true, expectCount: 0 },
+    ],
+  },
+  {
+    id: "E2E-AUTH-MSGPOST-001",
+    clause: "§ 9.2",
+    why: "Posting a message through the operator surface without a session is sending as somebody else. Every delivery scenario would stay green while it happened, because the message that arrives is well-formed. The refusal is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/messages", as: "none", body: {},
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-FILES-001",
+    clause: "§ 9.2",
+    why: "Files are payloads that were attached to messages. A listing that answered anyone hands over the attachments without touching the mailbox the scenarios watch. The refusal is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/files", as: "none",
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-EVENTS-001",
+    clause: "§ 9.2",
+    why: "A per-agent event stream is that agent's history. Unauthenticated it is every agent's history to anyone who can guess a name, and names are not secret. The refusal is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/events/e2e-src", as: "none",
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-UPLOAD-001",
+    clause: "§ 9.2",
+    why: "An upload route open to anyone is storage anyone can fill, and the first symptom is the audit spool refusing appends for a reason that points at the wrong subsystem. The refusal is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/upload", as: "none", body: {},
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-VAPID-001",
+    clause: "§ 9.2",
+    why: "The push public key has to be readable before a client has any credentials, because subscribing is what a client does on its way to having them. A session in front of it is the change that makes push impossible to set up.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/push/vapid-key", as: "none",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AGENTDEL-001",
+    clause: "§ 9.2",
+    why: "Removing an agent unauthenticated is how an identity disappears with nobody to ask. The mesh keeps working, which is why nothing else would notice. The refusal is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "DELETE", path: "/api/v1/admin/agents/e2e-src", as: "none",
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-SUBSCRIBE-001",
+    clause: "§ 9.2",
+    why: "A subscription without a session sends somebody else's notifications to an endpoint the subscriber chose. The refusal is the only half a caller without credentials can observe.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/push/subscribe", as: "none", body: {},
+        expect: { status: 401 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TYPEDEL-002",
+    clause: "§ 8.9.5",
+    why: "The holder-passes half for `agent.provision` on a delete: a guard that refuses the operator too is a broken route reported as a working one. The type here does not exist, so the answer is a miss rather than a removal — which is what makes it safe to assert on a shared mesh.",
+    steps: [
+      // `200` with `action: "not-found"`, not `404`. Deleting a type that is
+      // not there is not an error — the operator asked for it to be gone and it
+      // is — and the body says which of the two happened. A scenario asserting
+      // `404` here would be asserting a refusal the mesh deliberately does not
+      // make.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/agent-types/e2e-no-such-type", as: "admin",
+        expect: { status: 200, body: { "action": "not-found" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-KEYONE-002",
+    clause: "§ 10.2",
+    why: "The holder-passes half for `key.approve` on a single-identity read. Asking about an identity that was provisioned earlier in this run proves the route answers rather than refuses, without depending on approval state another scenario owns.",
+    steps: [
+      { do: "provision", identity: "e2e-keyread", type: "ai-claude", key: true },
+      { do: "http", method: "GET", path: "/api/v1/admin/keys/e2e-keyread", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-DEPTHONE-002",
+    clause: "§ 8.10.1",
+    why: "The holder-passes half for `mailbox.read.depth` on one identity. Depth is what an operator reads when a lane looks stuck; a route that refused them would make the stuck lane invisible at exactly the moment it matters.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/mailbox/e2e-keyread", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
 ] as const;
