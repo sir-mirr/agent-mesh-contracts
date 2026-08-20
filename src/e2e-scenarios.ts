@@ -1941,4 +1941,131 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 200, body: { "ok": true, "action": "deleted" } } },
     ],
   },
+  {
+    id: "E2E-SEARCH-001",
+    clause: "§ 9.1",
+    why: "Nothing in this set has ever called this route, so today every implementation of it passes. The console's search box is the one place an operator looks for a message they cannot scroll to, and at `200` a handler that ignores `q` and hands back everything it can see is indistinguishable from one that searches — as is one that answers an empty array to everybody. That is the absent-egress shape again: a status separates a refusal from a pass, never a firehose from a filter. Two rows and two reads that must *disagree* are what make `q` observable — each read names the id the other read must not hold, so a route that dropped the filter fails on `messages.1.id` and a route that filters everything away fails on `messages.0.id`. Neither of those absences means anything on its own, which is what the third read is for: both rows match `e2e-search-corpus`, so `count: 2` shows the missing row was excluded rather than never written — the trap `client-claude` fell into on a solo mesh (mail #223), where the row a filter was supposed to drop was simply the only one there. `limit` is measured off that same pair for the same reason: capping a query with two hits is the only way to tell a cap that works from a corpus that happened to be small, and a cap that stopped applying is silent until an operator's search quietly truncates or stops truncating. The bare `GET` is the one failure nothing above can reach, because every read above supplies `q`. The unsigned read at the end is the refusal half every other operator route in this set carries: without it a route that lost its session check is caught by nothing here. **What this does not measure is named in the comment on the last two steps** — the query has a second conjunct, and no arrangement of these verbs can put a row in that table which the caller is not party to.",
+    steps: [
+      // **Admitted, not provisioned.** `POST /api/v1/messages` answers `404`
+      // for any recipient absent from *this server's* `agent_registry`, and
+      // provisioning on the hub does not put anything there — § 9.1 says so and
+      // E2E-CONSOLE-001 pins the `404`. Admission is the writer that reaches it:
+      // `admitLocalUser` calls `upsertApprovedWebUser`, which inserts the row.
+      // Its own name, never `e2e-admitted`: that account is
+      // E2E-AUTH-USERNEW-002's, and admission answers `409` to a name already
+      // there, so borrowing it would fail on the setup rather than on search.
+      { do: "http", method: "POST", path: "/api/v1/admin/users", as: "admin",
+        body: { username: "e2e-search-peer" },
+        expect: { status: 201, body: { "ok": true, "user.username": "e2e-search-peer" } } },
+
+      // The corpus. Two rows sharing a token and differing in one word, so the
+      // same pair can be asked to select (one word) and to cap (the shared one).
+      //
+      // **Sent from the console, because that is the only writer of the table
+      // this route reads.** `send` is `mesh.send` on the hub and lands in a
+      // different store entirely; a scenario that seeded with it would search an
+      // empty table and read the emptiness as a broken filter.
+      //
+      // **The ids are bound, not matched by content.** A search that returned
+      // *a* row whose text happens to contain the word is not the same claim as
+      // one that returned *this* row, and only the second survives a handler
+      // that reconstructs a result instead of reading one.
+      //
+      // `status` is deliberately unpinned. It is `pending` when the http
+      // server's socket to the hub is up at that instant and `failed` when it is
+      // not — a startup race, not a property of search. The row is written
+      // before the hub is asked either way, which is why the corpus exists
+      // regardless and why pinning the field would only buy a flake.
+      { do: "http", method: "POST", path: "/api/v1/messages", as: "admin",
+        body: { to: "e2e-search-peer", text: "e2e-search-corpus needle-alpha" },
+        bind: { alphaId: "message.id" },
+        expect: { status: 201, body: { "ok": true, "message.to": "e2e-search-peer" } } },
+      { do: "http", method: "POST", path: "/api/v1/messages", as: "admin",
+        body: { to: "e2e-search-peer", text: "e2e-search-corpus needle-beta" },
+        bind: { betaId: "message.id" },
+        expect: { status: 201, body: { "ok": true, "message.to": "e2e-search-peer" } } },
+
+      // One word, one row. `messages.1.id: null` is the half that fails when the
+      // filter goes; `messages.0.id` is the half that fails when it over-filters.
+      // `query` echoes what the route decided it was searching for, which is
+      // where a parameter read under the wrong name shows up.
+      { do: "http", method: "GET", path: "/api/v1/messages/search?q=needle-alpha", as: "admin",
+        expect: { status: 200, body: {
+          "query": "needle-alpha",
+          "count": 1,
+          "messages.0.id": "{{alphaId}}",
+          // `to` and not `from`: a mapper that swapped the two columns puts
+          // `admin` here, so one field catches the swap in both directions.
+          "messages.0.to": "e2e-search-peer",
+          "messages.0.content": "e2e-search-corpus needle-alpha",
+          "messages.0.reply_to": null,
+          "messages.0.file_path": null,
+          "messages.1.id": null,
+        } } },
+
+      // **The other word, same caller.** Without this the read above asserts
+      // only that one row is missing, which a route returning the caller's
+      // oldest message to every `q` satisfies. Here the answer has to *change*
+      // with the parameter: the row the previous step required to be absent is
+      // the only row this one may hold.
+      { do: "http", method: "GET", path: "/api/v1/messages/search?q=needle-beta", as: "admin",
+        expect: { status: 200, body: {
+          "query": "needle-beta",
+          "count": 1,
+          "messages.0.id": "{{betaId}}",
+          "messages.0.content": "e2e-search-corpus needle-beta",
+          "messages.1.id": null,
+        } } },
+
+      // Both rows are reachable, which is what turns the two absences above into
+      // evidence of selection rather than of an empty table. Which of the two
+      // sorts first is not asserted: the order is `ts` descending at millisecond
+      // resolution and two console posts can land in the same millisecond, so
+      // only the count and the absence of a third are stated.
+      { do: "http", method: "GET", path: "/api/v1/messages/search?q=e2e-search-corpus", as: "admin",
+        expect: { status: 200, body: { "count": 2, "messages.2.id": null } } },
+
+      // The cap, measured against the query that has two hits — the only
+      // arrangement in which `limit` is observable at all. Same reason as above
+      // for not naming which row survives.
+      //
+      // `limit=1` and not `limit=0`: zero is answered with the default rather
+      // than with the floor, and a scenario that pinned that would write the
+      // quirk into the contract.
+      { do: "http", method: "GET", path: "/api/v1/messages/search?q=e2e-search-corpus&limit=1", as: "admin",
+        expect: { status: 200, body: { "count": 1, "messages.1.id": null } } },
+
+      // No `q` at all. Every read above supplies one, so this is the only step
+      // that can catch a route which made the parameter optional and answered
+      // the operator's whole correspondence to a request that asked for nothing.
+      // The refusal is asserted as *no rows*, not as a sentence: the wording is
+      // the implementation's and the emptiness is the contract's.
+      //
+      // **Half of what this route filters on is out of reach from here, and
+      // saying so is the point of this comment.** The query is
+      // `content LIKE ? AND (from_agent = ? OR to_agent = ?)`. Every step above
+      // measures the first conjunct. The second cannot be measured by any
+      // arrangement of these verbs: the console writer stamps
+      // `from = payload.github_login`, so every row a scenario can create has
+      // the caller as a party, and the only other writer fires for names in the
+      // server's `proxy_for` — which admission does not extend. Delete that
+      // conjunct and this scenario stays green while search becomes a firehose.
+      // It is a known hole, not a covered case, and the next reader is owed the
+      // difference.
+      { do: "http", method: "GET", path: "/api/v1/messages/search", as: "admin",
+        expect: { status: 400, body: { "count": null, "messages.0.id": null } } },
+
+      // The refusal half. `/api/v1/messages/search` has no sibling scenario
+      // holding its gate the way E2E-AUTH-USERS-001 holds `/admin/users`, so
+      // without this a route that stopped reading the session answers every
+      // stranger the correspondence of whoever it defaults to — and all eight
+      // steps above, which carry an operator session, stay green.
+      { do: "http", method: "GET", path: "/api/v1/messages/search?q=needle-alpha", as: "none",
+        expect: { status: 401, body: {
+          "error": "Unauthorized",
+          "count": null,
+          "messages.0.id": null,
+        } } },
+    ],
+  },
 ] as const;
