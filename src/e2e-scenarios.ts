@@ -96,7 +96,42 @@ export type Step =
    * never calling `mesh.receive` — sees whatever accumulated while it was away
    * only if the hub replays it, and until now both sides took that on trust.
    */
-  | { do: "connect"; identity: string; expectDelivered?: number; hold?: boolean; expect?: ExpectRpc }
+  | {
+      do: "connect";
+      identity: string;
+      expectDelivered?: number;
+      hold?: boolean;
+      expect?: ExpectRpc;
+      /**
+       * Sign with a key this scenario makes, having registered nothing.
+       *
+       * **A key is the caller's, registration is the hub's, and the schema tied
+       * them together.** `provision` was the only way to obtain a signing key,
+       * and provisioning *is* registration, so no scenario could say "a
+       * correctly signed stranger" — which is the exact state § 8.1 answers
+       * `-32011 IDENTITY_NOT_REGISTERED` to. The code was reachable in the hub
+       * and unreachable in the contract, which reads from the outside as a dead
+       * error code and would have been retired on that reading.
+       *
+       * `agent-mesh-client` found the gap while writing conformance scenarios:
+       * their attempt to reach it by failing a `provision` gave `-32014`
+       * instead, because a rejected provision can still leave the row.
+       *
+       * The key is generated locally and never sent to `POST /api/v1/agents`.
+       */
+      ephemeralKey?: boolean;
+      /**
+       * The WebSocket close code the hub is expected to send afterwards.
+       *
+       * The refusals in § 8.1 do not only answer — they close, with `1008`
+       * policy violation, about ten milliseconds later. That second half was
+       * unsayable, so a hub that answered `-32011` and then held the socket open
+       * forever satisfied every scenario. The error is the message; the close is
+       * the enforcement, and a contract that states one without the other pins
+       * the cheaper half.
+       */
+      expectClose?: number;
+    }
   /**
    * Close a socket a `connect` was holding.
    *
@@ -1395,7 +1430,7 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
   },
   {
     id: "E2E-STOREFWD-001",
-    clause: "§ 8.2",
+    clause: "§ 3",
     why: "The mesh is store-and-forward: mail addressed to a name with nobody behind it waits rather than failing. A hub that refused it would lose everything sent to an agent between its registration and its first connect, and the sender would read the refusal as a wrong address.",
     steps: [
       { do: "provision", identity: "e2e-fwd-src", type: "ai-claude", key: true },
@@ -1411,6 +1446,30 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "http", method: "POST", path: "/api/v1/messages", as: "admin",
         body: { to: "e2e-nobody-registered", text: "console says no" },
         expect: { status: 404 } },
+    ],
+  },
+  {
+    id: "E2E-REPLYHINT-001",
+    clause: "§ 8.2",
+    why: "replyTo is a hint and is not validated: an id naming no message the hub holds travels with the send rather than failing it. Validating would mean reading somebody else's mailbox history on every send — a read this contract does not give the sender and a cost it does not ask of the hub. The neighbour it is confused with runs the other way: an unknown recipient waits, an unknown replyTo goes along.",
+    steps: [
+      { do: "provision", identity: "e2e-hint-a", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-hint-a" },
+      { do: "provision", identity: "e2e-hint-b", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-hint-b" },
+      { do: "send", from: "e2e-hint-a", to: "e2e-hint-b", content: "answering nothing",
+        replyTo: "msg_0000000000000000", expect: { error: null } },
+      { do: "receive", identity: "e2e-hint-b", expectCount: 1 },
+    ],
+  },
+  {
+    id: "E2E-UPSERT-001",
+    clause: "§ 10.1",
+    why: "Registering a name that is already there updates it rather than refusing: an agent restarting with a fresh key must be able to propose it without an operator first removing the old row. The refusal that does exist is a different door — a second live socket — and conflating the two makes a restart look like an intrusion.",
+    steps: [
+      { do: "provision", identity: "e2e-upsert", type: "ai-claude", key: true },
+      { do: "provision", identity: "e2e-upsert", type: "ai-claude", key: true,
+        expect: { status: 200, body: { "action": "updated" } } },
     ],
   },
 ] as const;
