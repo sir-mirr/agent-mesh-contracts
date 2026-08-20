@@ -1005,7 +1005,11 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
       { do: "approve", identity: "e2e-revoked-c" },
       { do: "connect", identity: "e2e-revoked-c", expect: { error: null } },
       { do: "revoke", identity: "e2e-revoked-c", reason: "e2e revocation" },
-      { do: "connect", identity: "e2e-revoked-c", expect: { error: -32014, dataCode: "KEY_NOT_APPROVED" } },
+      // The other side of the same code. A hub that reported `missing` here
+      // would send an agent whose key an operator deliberately withdrew back to
+      // proposing another one, which is the loop the field exists to prevent.
+      { do: "connect", identity: "e2e-revoked-c",
+        expect: { error: -32014, dataCode: "KEY_NOT_APPROVED", data: { "key_status": "revoked" } } },
     ],
   },
   {
@@ -1014,7 +1018,11 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
     why: "An identity registered without a key is a name with nobody behind it. Connecting as one must be refused on the key rather than on the name, or an operator reading the refusal goes looking for a registration that is already there.",
     steps: [
       { do: "provision", identity: "e2e-keyless", type: "ai-claude", key: false },
-      { do: "connect", identity: "e2e-keyless", expect: { error: -32014, dataCode: "KEY_NOT_APPROVED" } },
+      // `missing`, not `revoked`. § 9.2b makes the field a MUST because the two
+      // states send a client to different places: propose a key, or wait for an
+      // operator. Asserting only the code leaves the clause held by nothing.
+      { do: "connect", identity: "e2e-keyless",
+        expect: { error: -32014, dataCode: "KEY_NOT_APPROVED", data: { "key_status": "missing" } } },
     ],
   },
   {
