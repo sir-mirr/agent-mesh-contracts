@@ -1552,4 +1552,44 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 200 } },
     ],
   },
+  {
+    id: "E2E-AUTH-GRANTNEW-002",
+    clause: "§ 9.2a, § 7",
+    why: "The holder-passes half for granting a capability. Measuring only the refusal lets a route that grants nobody anything pass: the stranger is refused, the operator is refused, and role administration is broken in a way that looks exactly like a working guard.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/grants", as: "admin",
+        body: { subject: "e2e-grantee", capability: "key.approve", scope: "tenant" },
+        expect: { status: 201 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-USERNEW-002",
+    clause: "§ 9.2a, § 7",
+    why: "The holder-passes half for admitting a person. Admission is how anybody gets an operator session at all, so a route that refused everyone would make the mesh unadministrable one restart later, with every refusal scenario still green.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/users", as: "admin",
+        body: { username: "e2e-admitted" },
+        expect: { status: 201 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-TYPENEW-002",
+    clause: "§ 9.2a, § 8.9.5",
+    why: "The holder-passes half for defining an agent type. The refusal beside it is satisfied by a route that defines nothing, and the first symptom would be a runtime nobody can register — read as a client bug, because the operator surface answered.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/agent-types", as: "admin",
+        body: { type: "e2e-probe-type", description: "written by a contract scenario", requires_key: false },
+        expect: { status: 201 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-PAIRCODE-002",
+    clause: "§ 9.2a, § 7",
+    why: "The holder-passes half for minting a pairing code. A code is how a device becomes trusted; a route that mints none refuses every enrolment, and the refusal scenario beside it would still pass.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/admin/pairing-codes", as: "admin",
+        body: { identity: "e2e-keyread" },
+        expect: { status: 201 } },
+    ],
+  },
 ] as const;
