@@ -1472,4 +1472,57 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 200, body: { "action": "updated" } } },
     ],
   },
+  {
+    id: "E2E-HISTORY-002",
+    clause: "§ 8.10.1",
+    why: "The holder-passes half. A refusal on its own is satisfied by a route that refuses the signed participant too — history is what a lane reads to recover after a restart, and a route that answered nobody would make every restart look like an empty mailbox.",
+    steps: [
+      { do: "provision", identity: "e2e-hist", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-hist" },
+      // `peer` is required: history is a conversation, not a firehose, and the
+      // route says so rather than defaulting to everything this identity can see.
+      { do: "http", method: "GET", path: "/api/v1/mailbox/history?peer=e2e-hist", as: { signedBy: "e2e-hist" },
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-INBOX-002",
+    clause: "§ 8.10.1",
+    why: "The holder-passes half for receiving over REST. Measuring only the refusal lets a hub that leases nothing to anyone pass: the unsigned caller is refused, the signed one gets an empty answer, and both look correct until a lane never receives.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/mailbox/in", as: { signedBy: "e2e-hist" }, body: {},
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AGENTDEL-002",
+    clause: "§ 8.9.5",
+    why: "The holder-passes half for removing an agent. The name here was never registered, so the answer is a miss rather than a removal — which is what makes it safe to assert on a mesh other scenarios share, and still proves the operator is let through.",
+    steps: [
+      // `200` with `action: "not-found"`, the same shape the agent-type delete
+      // answers. Removing something that is not there is not an error — the
+      // operator asked for it to be gone and it is — and the body says which of
+      // the two happened.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/agents/e2e-never-existed", as: "admin",
+        expect: { status: 200, body: { "action": "not-found" } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-EGRDEL-002",
+    clause: "§ 12",
+    why: "The holder-passes half for withdrawing an egress rule. Withdrawing one that is not there is a miss, so the assertion does not depend on a rule another scenario owns, and the operator still has to get past the gate to learn that.",
+    steps: [
+      { do: "http", method: "DELETE", path: "/api/v1/admin/groups/e2e-no-group/egress/e2e-no-target", as: "admin",
+        expect: { status: 404 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-KEYSTREAM-002",
+    clause: "§ 10.2",
+    why: "The holder-passes half for the pending-keys read. The stream beside it cannot be asserted from here — it never closes — so this holds the same capability through the route that answers and returns.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/keys/pending", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
 ] as const;
