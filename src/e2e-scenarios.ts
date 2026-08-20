@@ -199,6 +199,23 @@ export interface ExpectRpc {
   error?: number | null;
   /** `data.code`, when the scenario is about which refusal rather than that one happened. */
   dataCode?: string;
+  /**
+   * Dotted paths into the error's `data`, and the values they must hold.
+   *
+   * **A field can be MUST in the contract and unassertable in it.** § 9.2b
+   * requires `key_status` on `-32014` so a client can tell "no key was ever
+   * approved" from "the key was withdrawn" — the first is the caller's to fix,
+   * the second an operator decision it can only wait on. Both scenarios that
+   * reach that refusal could say `dataCode: "KEY_NOT_APPROVED"` and nothing
+   * more, so the two states the clause exists to separate were indistinguishable
+   * to the only thing that checks the clause. `agent-mesh-client` reported it
+   * within the hour of the clause landing.
+   *
+   * Same shape and same restraint as `ExpectHttp.body`: dotted paths, exact
+   * values, no matcher language. A scenario that can assert anything about a
+   * response becomes a second copy of the schema and drifts from it.
+   */
+  data?: Record<string, string | number | boolean | null>;
 }
 
 export interface ExpectHttp {
