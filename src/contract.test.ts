@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { E2E_SCENARIOS } from "./e2e-scenarios";
+
 import {
   BLOB_KEY_FIXTURES,
   EVENT_ID_FIXTURES,
@@ -707,3 +709,24 @@ describe("an unknown code in this band", () => {
     }
   });
 });
+/**
+ * **Two scenarios shared an id and both ran.**
+ *
+ * `E2E-AUTH-KEYSTREAM-002` was on the pending-keys read and on the stream beside
+ * it. Nothing noticed: the set is an array, so a runner iterating it executes
+ * both and reports 124 of 124, and only a runner keying by id would have
+ * collapsed them — silently dropping one, with the count still looking right.
+ *
+ * `SCENARIOS.md` already said ids are unique and that a retired one is never
+ * reused. Saying it there and nowhere else is how it stayed true until it was
+ * not: a rule that lives only in prose is enforced by whoever last read the
+ * prose.
+ */
+test("every scenario id is unique", () => {
+  const seen = new Map<string, number>();
+  for (const s of E2E_SCENARIOS) seen.set(s.id, (seen.get(s.id) ?? 0) + 1);
+  const repeated = [...seen].filter(([, n]) => n > 1).map(([id, n]) => `${id} ×${n}`);
+  expect(repeated, "an id names more than one scenario, so a log line naming it is ambiguous").toEqual([]);
+  expect(seen.size, "the scenario set is empty, so this proves nothing").toBeGreaterThan(100);
+});
+

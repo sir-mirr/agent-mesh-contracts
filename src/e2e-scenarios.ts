@@ -1542,7 +1542,7 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
     ],
   },
   {
-    id: "E2E-AUTH-KEYSTREAM-002",
+    id: "E2E-AUTH-KEYSPENDING-001",
     clause: "§ 10.2",
     why: "The holder-passes half for the pending-keys read. The stream beside it cannot be asserted from here — it never closes — so this holds the same capability through the route that answers and returns.",
     steps: [
