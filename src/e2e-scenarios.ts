@@ -1355,4 +1355,31 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 200 } },
     ],
   },
+  {
+    id: "E2E-AUTH-BEHAVIOUR-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half. A refusal on its own is satisfied by a route that refuses the operator too — measuring absence without measuring presence lets an implementation that gives nobody anything pass both.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/telemetry/behaviour", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AUDAGENTS-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half. A refusal on its own is satisfied by a route that refuses the operator too — measuring absence without measuring presence lets an implementation that gives nobody anything pass both.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/chat-audits/agents", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-OWNERS-002",
+    clause: "§ 8.11",
+    why: "The holder-passes half. A refusal on its own is satisfied by a route that refuses the operator too — measuring absence without measuring presence lets an implementation that gives nobody anything pass both.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/agents/e2e-keyread/owners", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
 ] as const;
