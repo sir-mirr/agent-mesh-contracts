@@ -1537,8 +1537,13 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
     clause: "§ 12",
     why: "The holder-passes half for withdrawing an egress rule. Withdrawing one that is not there is a miss, so the assertion does not depend on a rule another scenario owns, and the operator still has to get past the gate to learn that.",
     steps: [
+      // `200` with `action: "not-found"`, not `404`. This scenario asserted the
+      // `404` the route used to answer, which is how a bug becomes a contract:
+      // the route said `404` with `ok: true` — a status and a body disagreeing
+      // about one call — and the scenario pinned it. The sibling scenario for
+      // `agent-types` had the rule right 150 lines away.
       { do: "http", method: "DELETE", path: "/api/v1/admin/groups/e2e-no-group/egress/e2e-no-target", as: "admin",
-        expect: { status: 404 } },
+        expect: { status: 200, body: { "action": "not-found" } } },
     ],
   },
   {
