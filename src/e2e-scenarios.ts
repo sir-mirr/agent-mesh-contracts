@@ -1525,4 +1525,31 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 200 } },
     ],
   },
+  {
+    id: "E2E-AUTH-KEYSTREAM-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half for a stream. A stream that refuses everyone looks exactly like one that refuses strangers until an operator opens it, and the operator is the only party who would notice — usually while something else is already going wrong. Asserted on the status, because a stream has no end to read to.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/keys/stream", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-AUDSTREAM-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half for a stream. A stream that refuses everyone looks exactly like one that refuses strangers until an operator opens it, and the operator is the only party who would notice — usually while something else is already going wrong. Asserted on the status, because a stream has no end to read to.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/chat-audits/stream", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-USAGESTRM-002",
+    clause: "§ 11.0",
+    why: "The holder-passes half for a stream. A stream that refuses everyone looks exactly like one that refuses strangers until an operator opens it, and the operator is the only party who would notice — usually while something else is already going wrong. Asserted on the status, because a stream has no end to read to.",
+    steps: [
+      { do: "http", method: "GET", path: "/api/v1/admin/ai-usage/stream", as: "admin",
+        expect: { status: 200 } },
+    ],
+  },
 ] as const;
