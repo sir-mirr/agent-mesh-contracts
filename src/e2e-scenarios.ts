@@ -1622,4 +1622,323 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 201 } },
     ],
   },
+  {
+    id: "E2E-AUTH-TYPEDEL-003",
+    clause: "§ 10.3, § 9.2a",
+    why: "The removal half of the type registry — the branch that only exists once something is there to remove. Without it, the two scenarios beside it are both satisfied by a route that removes nothing: -001 measures the refusal to a stranger, and -002 deletes a name that was never registered, so a handler that authenticated the operator and then returned without touching the table would answer `not-found` correctly and pass both with the registry untouched. The first symptom would be a type an operator deleted still accepting registrations under it, read as a hub bug because the operator surface had already said `deleted`. That is why the second delete is here rather than the status alone: after a real removal the same call must answer `not-found`, whereas a no-op first call leaves the row and answers `deleted` twice — a distinction no status code can carry, and the same shape as the absent-egress bug this set once ratified.",
+    steps: [
+      // Its own scratch type, created here and gone by the last step. Never
+      // `ai-claude` or any other seeded name: § 10.3 refuses removal while any
+      // identity carries the type — soft-deleted ones included — so a scenario
+      // aiming at a shared type either fails on a `409` it did not mean or, if
+      // it somehow succeeded, would take the registry out from under every
+      // identity the scenarios above it provisioned.
+      //
+      // `requires_key` is deliberately unstated so the assertion pins § 10.3's
+      // default of `1` rather than a value this step supplied. Anything
+      // registering under an unstated type still needs a key.
+      { do: "http", method: "POST", path: "/api/v1/admin/agent-types", as: "admin",
+        body: { type: "e2e-scratch-type", description: "created and removed by this scenario" },
+        expect: { status: 201, body: {
+          "ok": true,
+          "type.type": "e2e-scratch-type",
+          "type.description": "created and removed by this scenario",
+          "type.requires_key": 1,
+        } } },
+      // `201` and the stored row echoed back, not merely an accepted request:
+      // the body is what says there is something for the next step to delete.
+      // On this route `type` is the row; on the delete below it is a bare
+      // string. Two shapes, so two paths.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/agent-types/e2e-scratch-type", as: "admin",
+        expect: { status: 200, body: {
+          "ok": true,
+          "type": "e2e-scratch-type",
+          "action": "deleted",
+        } } },
+      // The same call again, and this is the assertion the scenario exists for.
+      // § 9.2a: a delete whose target is absent answers `200` with `ok: true`,
+      // never `404` — status and body agreeing about one call — and `action`
+      // says which of the two happened. `deleted` then `not-found` for one name
+      // is a removal that took; `deleted` twice is a route reporting work it
+      // did not do.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/agent-types/e2e-scratch-type", as: "admin",
+        expect: { status: 200, body: {
+          "ok": true,
+          "type": "e2e-scratch-type",
+          "action": "not-found",
+        } } },
+    ],
+  },
+  {
+    id: "E2E-AUTH-GRANTDEL-002",
+    clause: "§ 9.2a, § 11",
+    why: "The holder-passes half for withdrawing a capability, and the only place the difference between a revoke and a no-op is written down. Without it a mesh that revokes nothing reports green: E2E-AUTH-GRANTDEL-001 is satisfied by a route that refuses everyone, and a DELETE that read no body — or answered a constant — is indistinguishable from one that removed the row, because both answer `200`. § 9.2a exists because this route used to answer `removed` rather than `action`, so the field name is half the assertion; the read either side of the delete is the other half, and what stops `action: deleted` from being a word the route always says.",
+    steps: [
+      // Its own subject and its own scope, granted here rather than borrowed:
+      // `e2e-grantee` belongs to E2E-AUTH-GRANTNEW-002, and a scenario that
+      // revoked another's grant would pass once and change what that one
+      // measures. This subject is nobody's login, so the grant gates nothing
+      // while it exists, and the scenario takes it back before it ends.
+      { do: "http", method: "POST", path: "/api/v1/admin/grants", as: "admin",
+        body: { subject: "e2e-grantdel", capability: "mailbox.read.depth", scope: "e2e-grantdel-agent" },
+        expect: {
+          status: 201,
+          body: {
+            "ok": true,
+            "subject": "e2e-grantdel",
+            "capability": "mailbox.read.depth",
+            "scope": "e2e-grantdel-agent",
+          },
+        } },
+      // The row is there *before* the delete, read through the same route that
+      // reads it afterwards. Without this half, the emptiness below is also
+      // what a filter that stopped filtering returns. `grants.1` is asserted
+      // absent so `grants.0` means "the only row" rather than "whichever came
+      // first".
+      { do: "http", method: "GET", path: "/api/v1/admin/grants?subject=e2e-grantdel", as: "admin",
+        expect: {
+          status: 200,
+          body: {
+            "grants.0.capability": "mailbox.read.depth",
+            "grants.0.scope": "e2e-grantdel-agent",
+            "grants.1.capability": null,
+          },
+        } },
+      // **A JSON body, not query parameters.** The read above filters by query
+      // string; this route takes `{ subject, capability, scope }` in the body
+      // and answers `400 invalid JSON body` to a caller that sends the same
+      // arguments as a query — which a runner copying the read's shape would
+      // report as a broken delete rather than as its own mistake.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/grants", as: "admin",
+        body: { subject: "e2e-grantdel", capability: "mailbox.read.depth", scope: "e2e-grantdel-agent" },
+        expect: { status: 200, body: { "ok": true, "action": "deleted" } } },
+      // The capability is actually gone, not merely reported gone.
+      { do: "http", method: "GET", path: "/api/v1/admin/grants?subject=e2e-grantdel", as: "admin",
+        expect: { status: 200, body: { "grants.0.capability": null } } },
+      // The same call a second time. § 9.2a: revoking what is not there is not
+      // an error — `200`, never `404` — and `action` is the only place the two
+      // outcomes are told apart, so a route answering `deleted` to everything
+      // fails here rather than above.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/grants", as: "admin",
+        body: { subject: "e2e-grantdel", capability: "mailbox.read.depth", scope: "e2e-grantdel-agent" },
+        expect: { status: 200, body: { "ok": true, "action": "not-found" } } },
+    ],
+  },
+  {
+    id: "E2E-HISTORY-003",
+    clause: "§ 8.4, § 9.2.1",
+    why: "E2E-HISTORY-002 reaches this route as the holder and stops at `200` — which a route answering `{ ok: true, messages: [] }` to everybody satisfies, because the identity it signs as has never exchanged a message and an empty answer is indistinguishable from a correct one. That is the absent-egress shape again: a status can tell a refusal from a pass, never a no-op from a real read. The third identity is what makes the `peer` filter observable — with only one conversation on the caller, a route that ignored `peer` and returned everything it is party to passes, which is the trap `client-claude` fell into on a solo mesh (mail #223). One caller reads twice with different `peer` values and gets different rows, so `peer` is shown to *select* and not merely to exclude: two reads that only ever assert an absence are jointly satisfied by a route that ignores `peer` and hands back the caller's oldest row. The read from the other end holds the `OR` in the query: a route matching only `from_agent = caller` would answer every sender correctly and leave every recipient's history permanently empty, and recovering a lane after a restart is the recipient's read.",
+    steps: [
+      // Three identities of its own. History is a read, so this scenario
+      // provisions rather than borrows: naming a pair another scenario owns
+      // would make the window depend on how much traffic that pair had seen.
+      { do: "provision", identity: "e2e-histpeer-a", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-histpeer-a" },
+      { do: "provision", identity: "e2e-histpeer-b", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-histpeer-b" },
+      { do: "provision", identity: "e2e-histpeer-c", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-histpeer-c" },
+      // `expect: { error: null }` on both sends, and it is not decoration. The
+      // runner does not check a `send` that states no expectation, so a refused
+      // one — egress, dormancy, a failed persist — passes here and reddens the
+      // scenario three steps later at `messages.0.from`, which reads as the
+      // history route returning nothing. That misattribution is the one the
+      // runner's own note records (mail #238).
+      { do: "send", from: "e2e-histpeer-a", to: "e2e-histpeer-b", content: "the one the conversation holds",
+        expect: { error: null } },
+      // The decoy, and the only reason `messages.1.content: null` means
+      // anything below: same caller, different peer, so a route that dropped
+      // the filter has a second row to hand back.
+      { do: "send", from: "e2e-histpeer-a", to: "e2e-histpeer-c", content: "the one it must not hold",
+        expect: { error: null } },
+      // Neither recipient has a socket, so both sends are queued: `pending` is
+      // the stored delivery state, and pinning it is what separates history
+      // reading the row from history reconstructing one.
+      { do: "http", method: "GET", path: "/api/v1/mailbox/history?peer=e2e-histpeer-b", as: { signedBy: "e2e-histpeer-a" },
+        expect: { status: 200, body: {
+          "ok": true,
+          "messages.0.from": "e2e-histpeer-a",
+          "messages.0.to": "e2e-histpeer-b",
+          // Equals `from` because nothing proxied this: § 8.2's attribution
+          // field is the one a proxy overrides, and it is not null here.
+          "messages.0.sent_by": "e2e-histpeer-a",
+          "messages.0.content": "the one the conversation holds",
+          "messages.0.reply_to": null,
+          "messages.0.status": "pending",
+          // Absent: the window is this conversation, not everything the caller
+          // is party to.
+          "messages.1.content": null,
+        } } },
+      // **The same caller, the other peer.** Without this the pair of reads
+      // above and below assert only that a row is missing, which a route
+      // returning the caller's single oldest message to every `peer` satisfies.
+      // Here the answer has to *change* with the parameter: the row the
+      // previous step required to be absent is the only row this one may hold.
+      { do: "http", method: "GET", path: "/api/v1/mailbox/history?peer=e2e-histpeer-c", as: { signedBy: "e2e-histpeer-a" },
+        expect: { status: 200, body: {
+          "ok": true,
+          "messages.0.from": "e2e-histpeer-a",
+          "messages.0.to": "e2e-histpeer-c",
+          "messages.0.content": "the one it must not hold",
+          "messages.0.status": "pending",
+          "messages.1.content": null,
+        } } },
+      // The same row from the other end. The caller is the signature's, never a
+      // parameter (§ 9.2.1), so this is the recipient's own read.
+      { do: "http", method: "GET", path: "/api/v1/mailbox/history?peer=e2e-histpeer-a", as: { signedBy: "e2e-histpeer-b" },
+        expect: { status: 200, body: {
+          "ok": true,
+          "messages.0.from": "e2e-histpeer-a",
+          "messages.0.to": "e2e-histpeer-b",
+          "messages.0.sent_by": "e2e-histpeer-a",
+          "messages.0.content": "the one the conversation holds",
+          "messages.0.status": "pending",
+          "messages.1.content": null,
+        } } },
+    ],
+  },
+  {
+    id: "E2E-RECALLAUTH-002",
+    clause: "§ 8.10.1, § 9.2.1",
+    why: "The branch that actually withdraws. Every recall scenario before this one ends in a refusal — `401` unsigned, `404` for an id this sender never sent, `409` once the recipient has been handed it — so the single outcome that mutates the mesh is the one nothing reaches. Two hubs satisfy all three: one that answers `recalled: true` and deletes nothing, and one that deletes every pending message the sender has. The first tells a sender the message is gone and hands it to the recipient anyway; the second silently withdraws messages nobody asked to withdraw. No response body on the sender's side disagrees with either, which is why this ends at the recipients rather than at the `200`.",
+    steps: [
+      // Its own three. `e2e-recall-from`/`-to` are E2E-RECALL-001's, and their
+      // outbox is that scenario's state — a recall here would move it.
+      { do: "provision", identity: "e2e-recallok-src", type: "ai-claude", key: true },
+      { do: "provision", identity: "e2e-recallok-dst", type: "ai-claude", key: true },
+      { do: "provision", identity: "e2e-recallok-other", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-recallok-src" },
+      { do: "approve", identity: "e2e-recallok-dst" },
+      { do: "approve", identity: "e2e-recallok-other" },
+
+      // `200`, not `201`: this route unwraps a JSON-RPC result rather than
+      // creating a REST resource. `pending` is the precondition everything
+      // below rests on — neither recipient ever connects, so nobody has been
+      // handed anything and it is all still the sender's to withdraw.
+      { do: "http", method: "POST", path: "/api/v1/mailbox/out", as: { signedBy: "e2e-recallok-src" },
+        body: { to: "e2e-recallok-dst", content: "sent in error" },
+        expect: { status: 200, body: { "ok": true, "status": "pending" } },
+        bind: { recallable: "id" } },
+
+      // The "before" half of the pair below, and the only step here that pins
+      // what a recallable row looks like — `to` is the sender's word for the
+      // recipient and the store's column is `to_agent`, so a listing that
+      // stopped mapping it would be caught nowhere else.
+      //
+      // Not "proof the mesh stored something": the `bind` above would already
+      // have thrown on a missing `id`, and a `DELETE` against a row that does
+      // not exist takes the not-found branch and answers `404`.
+      //
+      // Asserted while exactly one message is in flight, on purpose. `ts` is a
+      // whole-second `CURRENT_TIMESTAMP` and the listing is `ORDER BY ts DESC`,
+      // so two messages sent in the same second tie and no index means anything.
+      { do: "http", method: "GET", path: "/api/v1/mailbox/out", as: { signedBy: "e2e-recallok-src" },
+        expect: {
+          status: 200,
+          body: {
+            "messages.0.id": "{{recallable}}",
+            "messages.0.to": "e2e-recallok-dst",
+            "messages.1.id": null,
+          },
+        } },
+
+      // **The bystander, and it is not decoration.** The delete is scoped by
+      // `id AND from_agent`; drop the `id` and recall withdraws the sender's
+      // entire pending queue. With one message in flight that mutation is
+      // invisible — the outbox empties and the recipient gets nothing either
+      // way, which is exactly what a working recall looks like. A second
+      // message this recall must not touch is the only thing that separates
+      // them, and this is the sole scenario that reaches the deleting branch.
+      { do: "http", method: "POST", path: "/api/v1/mailbox/out", as: { signedBy: "e2e-recallok-src" },
+        body: { to: "e2e-recallok-other", content: "keeps" },
+        expect: { status: 200, body: { "ok": true, "status": "pending" } },
+        bind: { keeper: "id" } },
+
+      // The half that was missing. `id` here is the path's id echoed back, so
+      // this pins the response *shape* — enough that an empty `200` fails, not
+      // enough to say which row went. The two steps after it say that.
+      { do: "http", method: "DELETE", path: "/api/v1/mailbox/out/{{recallable}}",
+        as: { signedBy: "e2e-recallok-src" },
+        expect: { status: 200, body: { "ok": true, "recalled": true, "id": "{{recallable}}" } } },
+
+      // One gone, one still there, in one assertion. `messages.0.id` names the
+      // survivor, so a recall that took the wrong row fails; `messages.1.id`
+      // is `null` — absent-or-null — so a recall that took neither fails too,
+      // whichever way the two would have tied. Only one row can be listed by
+      // the time this runs, so the index is unambiguous.
+      { do: "http", method: "GET", path: "/api/v1/mailbox/out", as: { signedBy: "e2e-recallok-src" },
+        expect: { status: 200, body: { "messages.0.id": "{{keeper}}", "messages.1.id": null } } },
+
+      // And gone from the recipient's mailbox — the assertion that separates a
+      // withdrawal from a listing that merely stopped listing it. No response
+      // body on the sender's side can tell those two apart; only the other end
+      // can, which is why the scenario does not end at the `200` above.
+      { do: "receive", identity: "e2e-recallok-dst", expectCount: 0 },
+      // The same question asked from the other side of the bystander: the
+      // message this recall had no business touching is still deliverable.
+      { do: "receive", identity: "e2e-recallok-other", expectCount: 1 },
+    ],
+  },
+  {
+    id: "E2E-EGRESS-002",
+    clause: "§ 12, § 9.2a",
+    why: "The half of the egress withdrawal where the rule is actually there. Without it the route is held by a `401` and by an absent rule answering `action: \"not-found\"`, and a handler that removes nothing satisfies both of those forever — as does one that reads the two path params in the wrong order, since `dst -> src` is absent and absence is the only answer those two scenarios ever check. Its own groups, named by nobody else, so the rules it withdraws are ones no other scenario owns.",
+    steps: [
+      // Two distinct groups rather than a self-rule. A route that swapped
+      // `group_id` and `to_group` would revoke `dst -> src`, find nothing, and
+      // answer `not-found` — invisible if both ends carried the same name.
+      //
+      // Note what these two steps are and are not: `group_egress` has no
+      // foreign key to `agent_groups` and the egress route never checks that
+      // either group exists, so this is not a precondition the handler
+      // enforces. It is here because a rule between groups nobody created is
+      // not a state an operator can reach, and a scenario should not be the
+      // only way to reach it.
+      { do: "http", method: "POST", path: "/api/v1/admin/groups", as: "admin",
+        body: { group_id: "e2e-egr-src" }, expect: { status: 201, body: { "created": true } } },
+      { do: "http", method: "POST", path: "/api/v1/admin/groups", as: "admin",
+        body: { group_id: "e2e-egr-dst" }, expect: { status: 201, body: { "created": true } } },
+      // A second destination out of the *same* source group, never named by a
+      // revoke until the last step. This is the only thing standing between
+      // this scenario and a `revokeEgress` that lost its `to_group` predicate:
+      // with a single rule in play, removing the one rule asked for and
+      // clearing every rule out of the group answer identically forever.
+      { do: "http", method: "POST", path: "/api/v1/admin/groups", as: "admin",
+        body: { group_id: "e2e-egr-keep" }, expect: { status: 201, body: { "created": true } } },
+      // `201`, not `200` — this creates a rule. The echoed pair is built from
+      // the path param and the request body, so it restates the request and
+      // reports nothing about what the store wrote; it is asserted because a
+      // grant route that stopped naming the direction it just granted leaves
+      // its caller unable to tell which way round the rule went. What the store
+      // actually holds is read back below, by revoking it.
+      { do: "http", method: "POST", path: "/api/v1/admin/groups/e2e-egr-src/egress", as: "admin",
+        body: { to_group: "e2e-egr-dst" },
+        expect: { status: 201, body: { "ok": true, "from_group": "e2e-egr-src", "to_group": "e2e-egr-dst" } } },
+      { do: "http", method: "POST", path: "/api/v1/admin/groups/e2e-egr-src/egress", as: "admin",
+        body: { to_group: "e2e-egr-keep" },
+        expect: { status: 201, body: { "ok": true, "from_group": "e2e-egr-src", "to_group": "e2e-egr-keep" } } },
+      // `200` with `action: "deleted"`. The same `200` the absent case answers,
+      // so the body is the entire difference between a withdrawal and a no-op
+      // and a scenario asserting the status alone would be measuring nothing —
+      // which is how the `404`-with-`ok: true` shape got ratified here once.
+      //
+      // This is also the step that finally reads the direction of the grant
+      // above: a store that wrote `dst -> src` answers `not-found` here.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/groups/e2e-egr-src/egress/e2e-egr-dst", as: "admin",
+        expect: { status: 200, body: { "ok": true, "action": "deleted" } } },
+      // And the same call again, on the rule just withdrawn. `deleted` above is
+      // a claim about the store that only this step reads back: a route that
+      // answered `deleted` unconditionally passes every step before this one.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/groups/e2e-egr-src/egress/e2e-egr-dst", as: "admin",
+        expect: { status: 200, body: { "ok": true, "action": "not-found" } } },
+      // The rule the revoke never named, still there. `deleted` here says the
+      // revoke above removed one row rather than every row out of
+      // `e2e-egr-src` — the difference between withdrawing a grant and
+      // clearing a group's whole egress, which on the shared mesh would
+      // otherwise show up as a later scenario's send being refused for a
+      // reason that scenario cannot see.
+      { do: "http", method: "DELETE", path: "/api/v1/admin/groups/e2e-egr-src/egress/e2e-egr-keep", as: "admin",
+        expect: { status: 200, body: { "ok": true, "action": "deleted" } } },
+    ],
+  },
 ] as const;
