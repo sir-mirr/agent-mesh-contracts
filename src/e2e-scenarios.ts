@@ -1382,4 +1382,35 @@ export const E2E_SCENARIOS: readonly Scenario[] = [
         expect: { status: 200 } },
     ],
   },
+  {
+    id: "E2E-INCUMBENT-001",
+    clause: "§ 8.1",
+    why: "Two sockets for one identity is a split brain: both would be pushed to, and each would answer as the same agent. The incumbent is kept rather than replaced, so a contender that reconnects during a network blip cannot take a live agent's place — and the refusal has to name which of the two survived.",
+    steps: [
+      { do: "provision", identity: "e2e-incumbent", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-incumbent" },
+      { do: "connect", identity: "e2e-incumbent", hold: true, expect: { error: null } },
+      { do: "connect", identity: "e2e-incumbent", expect: { error: -32010 } },
+    ],
+  },
+  {
+    id: "E2E-STOREFWD-001",
+    clause: "§ 8.2",
+    why: "The mesh is store-and-forward: mail addressed to a name with nobody behind it waits rather than failing. A hub that refused it would lose everything sent to an agent between its registration and its first connect, and the sender would read the refusal as a wrong address.",
+    steps: [
+      { do: "provision", identity: "e2e-fwd-src", type: "ai-claude", key: true },
+      { do: "approve", identity: "e2e-fwd-src" },
+      { do: "send", from: "e2e-fwd-src", to: "e2e-nobody-registered", content: "waiting for you", expect: { error: null } },
+    ],
+  },
+  {
+    id: "E2E-CONSOLE-001",
+    clause: "§ 9.1",
+    why: "The two surfaces answer the same request differently on purpose, and the difference is the contract. The mesh queues for a name it has never seen; the console refuses, because it decides from its own table who its users may address. A deployment that made them agree would either lose store-and-forward or let the console send into the void.",
+    steps: [
+      { do: "http", method: "POST", path: "/api/v1/messages", as: "admin",
+        body: { to: "e2e-nobody-registered", text: "console says no" },
+        expect: { status: 404 } },
+    ],
+  },
 ] as const;
