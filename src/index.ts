@@ -6,6 +6,7 @@ export * from "./capabilities";
 export * from "./envelope";
 export * from "./errors";
 export * from "./history";
+export * from "./http-admin";
 export * from "./hub";
 export * from "./key";
 export * from "./mailbox";

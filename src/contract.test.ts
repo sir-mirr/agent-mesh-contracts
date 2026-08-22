@@ -17,6 +17,7 @@ import { extractAttachmentsMeta } from "./attachment";
 import { isValidEventId } from "./audit";
 import { ERROR_CLASS, ERROR_DATA_CODE, JSON_RPC_PREDEFINED, MESH_ERROR, MESH_ERROR_RANGE, RETIRED_ERROR_CODES, errorClass, errorClassOf, errorDataCode, isMeshErrorCode } from "./errors";
 import { MAILBOX_CAPABILITY_DEFAULTS, MAILBOX_ERROR, PROVISION_ERROR } from "./mailbox";
+import { HTTP_ADMIN_ERROR, IMMUTABLE_REASON } from "./http-admin";
 import { nextIntervalFire, parseDuration, parseScheduleSpec } from "./schedule";
 import {
   formatUploadAuthorization,
@@ -413,6 +414,38 @@ describe("create_only provisioning (SPEC § 10.1)", () => {
 
   test("the refusal reasons are distinguishable without matching prose", () => {
     expect(PROVISION_ERROR.IDENTITY_EXISTS).not.toBe(PROVISION_ERROR.IDENTITY_DELETED);
+  });
+});
+
+describe("the REST admin surface's refusals", () => {
+  /**
+   * A consumer reaches these two ways — `HTTP_ADMIN_ERROR.TENANT_EXISTS` and
+   * the literal `"TENANT_EXISTS"` off a response — and both have to name the
+   * same refusal. A key that drifts from its value makes one of the two lie,
+   * and nothing else in this package would notice: every use compiles.
+   */
+  test("every key is its own value", () => {
+    const drifted = Object.entries(HTTP_ADMIN_ERROR).filter(([key, value]) => key !== value);
+    expect(drifted).toEqual([]);
+  });
+
+  test("no two refusals share a string", () => {
+    const values = Object.values(HTTP_ADMIN_ERROR);
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  /**
+   * `immutable_reason` is a field of a `200` and the code is what a revoke
+   * attempt earns; the two say the same rule from different places. Spelling
+   * them identically would invite a `switch` written against one and handed the
+   * other — which is why the vocabulary is lower case and why this asserts the
+   * gap rather than trusting it.
+   */
+  test("an immutable reason is never spelled as the refusal code", () => {
+    const codes = new Set<string>(Object.values(HTTP_ADMIN_ERROR));
+    const collisions = Object.values(IMMUTABLE_REASON).filter((reason) => codes.has(reason));
+    expect(collisions).toEqual([]);
+    expect(Object.values(IMMUTABLE_REASON).every((r) => r === r.toLowerCase())).toBe(true);
   });
 });
 
