@@ -54,10 +54,27 @@ export const HTTP_ADMIN_ERROR = {
    */
   LAST_GRANTOR: "LAST_GRANTOR",
   /**
-   * `DELETE /api/v1/admin/grants`, the subject is an administrator account
-   * (D-746). 409. Permanent.
+   * The subject is an account the installation is recovered through. 409.
+   * Permanent.
+   *
+   * Two routes answer it, for one reason: `DELETE /api/v1/admin/grants`
+   * refuses to strip an administrator's grants (D-746), and
+   * `POST /api/v1/admin/users/{username}/deactivate` refuses to deactivate the
+   * seeded administrator (T-047). Both are the same act seen from different
+   * ends — leaving a deployment nobody can administer, including the
+   * administration that would undo it.
    */
   PROTECTED_ACCOUNT: "PROTECTED_ACCOUNT",
+  /**
+   * `POST /api/v1/admin/users/{username}/deactivate`, the account named is the
+   * caller's own (T-047). 409. Permanent for that session.
+   *
+   * Separate from `PROTECTED_ACCOUNT` because what an operator does next
+   * differs: this one clears by asking a colleague, and that one does not
+   * clear at all. A console that collapsed them would tell somebody to go find
+   * another administrator when the answer is that they clicked the wrong row.
+   */
+  SELF_DEACTIVATION: "SELF_DEACTIVATION",
   /**
    * The `/api/v1/admin/tenants` routes, from a session that is not a platform
    * administrator. 403. Permanent for that session.
