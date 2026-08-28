@@ -40,6 +40,8 @@
  * the server does is a description, and there is already one of those.
  */
 
+import type { RecordedBy } from "./audit";
+
 /**
  * One row of `GET /api/v1/agents`.
  *
@@ -179,21 +181,19 @@ export interface RestMailboxResponse {
 /**
  * Who recorded an audit event, **as this route sends it**.
  *
- * **This is not `RecordedBy` from `./audit`, and the difference is not
- * cosmetic.** That interface says `{ kind: "hub" | "adapter"; identity: string }`;
- * the route sends `{ kind, id }`, `kind` is whatever string the column holds,
- * and `id` is nullable. A reader typed as `RecordedBy` compiles and then reads
- * `undefined` from `identity` on every event.
+ * Now the same type as `RecordedBy` in `./audit`, and re-exported rather than
+ * restated. It was deliberately a second declaration while the two disagreed —
+ * that interface said `{ kind: "hub" | "adapter"; identity: string }` and the
+ * route sent `{ kind, id }` with a nullable, open-vocabulary `kind` — because a
+ * contract that renamed the field to match would have made the disagreement
+ * compile instead of visible.
  *
- * Written down as a second type rather than reconciled here: which of the two
- * is right is a decision about the audit store, not about this response, and a
- * contract that renamed the field to match the other one would make the
- * disagreement compile instead of making it visible.
+ * D-808 settled it in the route's favour on the vocabulary (three kinds) and
+ * against it on the spelling (`identity`, not `id`), so there is one shape
+ * again and keeping two would be two copies that can drift apart with nothing
+ * able to notice.
  */
-export interface RestAuditRecordedBy {
-  kind: string;
-  id: string | null;
-}
+export type RestAuditRecordedBy = RecordedBy;
 
 /**
  * One event from `GET /api/v1/audit/events` (SPEC § 9.1).

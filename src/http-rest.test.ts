@@ -14,6 +14,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { CONSOLE_RESPONSE_FIXTURES } from "../fixtures/index";
+import type { RecordedBy } from "./audit";
 import { CONSOLE_FIELDS_THAT_DO_NOT_EXIST, CONSOLE_READ_ROUTES } from "./http-rest";
 
 describe("the console read routes", () => {
@@ -94,5 +95,35 @@ describe("the console read routes", () => {
     expect("status" in row).toBe(false);
     expect("last_seen_at" in row).toBe(true);
     expect(row.last_seen_at, "null means no presence record, not offline").toBeNull();
+  });
+  test("every recorder in the audit fixture satisfies the union, and all three appear", () => {
+    // **The fixture was wrong here and nothing could say so.** It carried
+    // `{ kind: "hub", id: "hub" }`: the pre-D-808 spelling, and a hub naming a
+    // recorder that no route has ever sent. The platform's live comparison
+    // walks field *names* one level deep, so `recorded_by`'s members were below
+    // where it looked.
+    //
+    // Checked here against the rule rather than against a recorded value,
+    // because the failure this guards is a hand-written fixture drifting from
+    // the type — and a fixture compared to itself agrees with itself.
+    const audit = CONSOLE_RESPONSE_FIXTURES.find((f) => f.path === "/api/v1/audit/events")!;
+    const events = audit.body.events as Array<{ recorded_by: RecordedBy }>;
+
+    for (const e of events) {
+      const by = e.recorded_by;
+      expect(Object.keys(by).sort(), `recorded_by has the wrong members: ${JSON.stringify(by)}`)
+        .toEqual(["identity", "kind"]);
+      if (by.kind === "hub") {
+        expect(by.identity, "a hub-recorded event named a recorder").toBeNull();
+      } else {
+        expect(typeof by.identity, `a ${by.kind}-recorded event has no recorder`).toBe("string");
+      }
+    }
+
+    // All three, so the rule above is not read off one kind. A fixture showing
+    // only `hub` teaches the next implementer that the field has one value, and
+    // the two it omits are exactly the ones that break a reader.
+    expect([...new Set(events.map((e) => e.recorded_by.kind))].sort())
+      .toEqual(["adapter", "http", "hub"]); // sorted: "http" < "hub"
   });
 });

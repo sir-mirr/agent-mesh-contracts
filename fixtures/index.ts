@@ -467,6 +467,18 @@ export const CONSOLE_RESPONSE_FIXTURES: readonly ConsoleResponseFixture[] = [
     neverSent: ["cursor", "total"],
     body: {
       ok: true,
+      // **One event per recorder, and not for symmetry.** A fixture carrying
+      // only `hub` teaches the next implementer that `recorded_by.kind` has one
+      // value, and the two it omits are the ones that break a reader: `http`
+      // was on the wire while no contract named it, and `identity` is null for
+      // exactly one of the three.
+      //
+      // The single event here previously read `{ kind: "hub", id: "hub" }` —
+      // the pre-D-808 spelling, and a hub naming a recorder, which no route has
+      // ever sent. `test/console-contract.test.ts` in the platform compares
+      // *field names* against the live routes, and `recorded_by`'s members are
+      // nested one level below what it walks, so both errors sat inside a
+      // fixture that was passing its comparison.
       events: [
         {
           event_id: "01J0000000000000000000000A",
@@ -477,13 +489,53 @@ export const CONSOLE_RESPONSE_FIXTURES: readonly ConsoleResponseFixture[] = [
           causation_event_id: null,
           producer_id: null,
           identity: "lane-a",
-          // `id`, not `identity` — see `RestAuditRecordedBy`.
-          recorded_by: { kind: "hub", id: "hub" },
+          // § 8.9.4: the hub's own observation, and null is the whole answer.
+          recorded_by: { kind: "hub", identity: null },
           payload: {},
           payload_digest: "0".repeat(64),
           integrity: { digest_matches: true },
           attestation: null,
           stored_at: "2026-08-01T00:00:01Z",
+          attachments: [],
+        },
+        {
+          event_id: "01J0000000000000000000000B",
+          schema_version: 1,
+          event_type: "channel.message.received",
+          occurred_at: "2026-08-01T00:00:02Z",
+          correlation_id: null,
+          causation_event_id: null,
+          producer_id: null,
+          identity: "lane-a",
+          // `mesh.audit.append`: the adapter reporting its own activity, under
+          // the identity the append was authenticated as.
+          recorded_by: { kind: "adapter", identity: "lane-a" },
+          payload: {},
+          payload_digest: "0".repeat(64),
+          integrity: { digest_matches: true },
+          attestation: null,
+          stored_at: "2026-08-01T00:00:03Z",
+          attachments: [],
+        },
+        {
+          event_id: "01J0000000000000000000000C",
+          schema_version: 1,
+          event_type: "mesh.identity.audit_read",
+          occurred_at: "2026-08-01T00:00:04Z",
+          correlation_id: "operator-one",
+          causation_event_id: null,
+          producer_id: null,
+          // Whose access it was. The reading *service* is in `recorded_by`;
+          // the operator behind the session is here, and a console that showed
+          // only one of the two would answer "who looked" with the name of the
+          // process rather than the person.
+          identity: "operator-one",
+          recorded_by: { kind: "http", identity: "agent-mesh-http" },
+          payload: {},
+          payload_digest: "0".repeat(64),
+          integrity: { digest_matches: true },
+          attestation: null,
+          stored_at: "2026-08-01T00:00:05Z",
           attachments: [],
         },
       ],

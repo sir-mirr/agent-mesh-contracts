@@ -135,11 +135,40 @@ export interface AuditAppendResult {
   stored_at: string;
 }
 
-/** Who wrote the record, as opposed to whose activity it describes. */
-export interface RecordedBy {
-  kind: "hub" | "adapter";
-  identity: string;
-}
+/**
+ * Who wrote the record, as opposed to whose activity it describes (§ 8.9.4).
+ *
+ * **Three recorders, not two.** The vocabulary was `"hub" | "adapter"` until
+ * `test/audit.test.ts` in the platform read the route and found `http` on the
+ * wire, written by every § 11.0.1 access record. The type had excluded a value
+ * the server had been sending all along, so a reader narrowed on it met a third
+ * kind and matched no branch.
+ *
+ * **`identity` is null exactly for the hub, and that is the point of the
+ * union.** The hub records under its own authority and has no separate
+ * reporting identity; filling one in invents a participant. Every other kind
+ * names one, so a consumer branching on `kind` gets the nullability with it
+ * rather than having to check twice.
+ *
+ * The stored column is still `recorded_by_id`. A storage name is not a wire
+ * name, and renaming the column would rewrite audit history to fix a spelling.
+ */
+export type RecordedBy =
+  /** § 8.9.4. The hub's own observation of routing it performed. */
+  | { kind: "hub"; identity: null }
+  /** `mesh.audit.append`. An adapter's report of its own activity. */
+  | { kind: "adapter"; identity: string }
+  /**
+   * § 11.0.1. **A record that the audit log itself was read** — who saw what,
+   * which is the most sensitive axis the trail has. `identity` is the reading
+   * service's own name, `agent-mesh-http`, not the operator behind the session;
+   * the operator is in `identity` on the event.
+   *
+   * Not another adapter. An adapter reports activity elsewhere; this reports
+   * access to the record, and a consumer that folds the two together cannot
+   * show an access log at all — which reads as nobody having looked.
+   */
+  | { kind: "http"; identity: string };
 
 /**
  * The signature preserved with a stored event.
