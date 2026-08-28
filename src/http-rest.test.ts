@@ -126,4 +126,33 @@ describe("the console read routes", () => {
     expect([...new Set(events.map((e) => e.recorded_by.kind))].sort())
       .toEqual(["adapter", "http", "hub"]); // sorted: "http" < "hub"
   });
+  test("the agent fixture shows a live row and a torn-down one, with ISO timestamps", () => {
+    // **Two rows for one reason.** A fixture holding only live agents teaches
+    // the next implementer that `deleted_at` is always null, and the case it
+    // omits is the one where a console offers an addressee the hub answers
+    // `409 IDENTITY_DELETED` for. The same argument as the three recorders
+    // above: the omitted member is the one that breaks a reader.
+    const agents = CONSOLE_RESPONSE_FIXTURES.find((f) => f.path === "/api/v1/agents")!;
+    const rows = agents.body.agents as Array<Record<string, unknown>>;
+
+    const states = rows.map((r) => (r.deleted_at === null ? "live" : "torn-down")).sort();
+    expect(states, "the fixture does not show both states").toEqual(["live", "torn-down"]);
+    for (const row of rows) {
+      expect("deleted_at" in row, `${row.id} has no deleted_at`).toBe(true);
+    }
+
+    // D-809: the wire is ISO-8601, whatever the column holds. Checked against
+    // the rule rather than against a recorded string, because a fixture
+    // compared to itself agrees with itself.
+    const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+    const stamps = rows.flatMap((r) =>
+      (["created_at", "last_seen_at", "deleted_at"] as const)
+        .map((k) => [k, r[k]] as const)
+        .filter(([, v]) => v !== null && v !== undefined),
+    );
+    expect(stamps.length, "no timestamps in the fixture, so the shape was not checked").toBeGreaterThan(1);
+    for (const [key, value] of stamps) {
+      expect(String(value), `${key} is not ISO-8601`).toMatch(ISO);
+    }
+  });
 });

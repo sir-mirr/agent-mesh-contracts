@@ -409,7 +409,26 @@ export const CONSOLE_RESPONSE_FIXTURES: readonly ConsoleResponseFixture[] = [
           channel: "native",
           type: "agent",
           created_at: "2026-08-01T00:00:00Z",
+          // Never connected. Recorded as `null` because that is what the route
+          // sends for one — it used to send a provisioning stamp here (D-809).
           last_seen_at: null,
+          deleted_at: null,
+          fingerprint: null,
+          tenant: "default",
+        },
+        {
+          // Torn down, and saying so. A fixture with only live rows teaches the
+          // next implementer that `deleted_at` is always null, and the case it
+          // omits is the one where a consumer offers an addressee the hub will
+          // never issue again.
+          id: "lane-gone",
+          name: "lane-gone",
+          description: null,
+          channel: "native",
+          type: "agent",
+          created_at: "2026-08-01T00:00:00Z",
+          last_seen_at: null,
+          deleted_at: "2026-08-02T00:00:00Z",
           fingerprint: null,
           tenant: "default",
         },

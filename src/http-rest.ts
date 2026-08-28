@@ -75,7 +75,38 @@ export interface RestAgentRow {
    * invent a creation time, and inventing one is the defect `I-062` had.
    */
   created_at: string | null;
+  /**
+   * When the mesh last saw this identity, **ISO-8601 with `T` and `Z`**.
+   *
+   * `null` means the mesh holds no presence record — never "offline", which is
+   * an operating policy this route does not decide, and why there is no
+   * `status` field.
+   *
+   * **A value means the mesh saw it, and only that** (D-809). Provisioning used
+   * to stamp this column, so an identity that had never opened a socket came
+   * back with a timestamp equal to its `created_at` to the second, and a screen
+   * reading it drew a never-connected agent as seen moments ago — `I-062` again,
+   * through the field added to end it. Neither this type nor SPEC had ever said
+   * what a value meant; it was not a contradiction but a silence, so the fix is
+   * a sentence as much as a change.
+   */
   last_seen_at: string | null;
+  /**
+   * When § 9.3 tore this identity down, **ISO-8601**, or `null` if it is live.
+   *
+   * **Said, not inferred.** Teardown does not touch the console's own registry
+   * table, so a torn-down identity used to arrive as a row with
+   * `last_seen_at: null` and nothing else — indistinguishable from a healthy
+   * identity that has never connected, while the hub answered
+   * `409 IDENTITY_DELETED` for the same name forever.
+   *
+   * The row stays rather than vanishing: a reader who finds nothing cannot tell
+   * a teardown from a name that never existed. Which surface *shows* it is a
+   * different question — one answering "who can I address" drops these, one
+   * answering "what happened to this name" keeps them — and a consumer must
+   * branch on this field rather than on a row's absence or on a null elsewhere.
+   */
+  deleted_at: string | null;
   /** Of the approved key, when there is one. Absent is not "unverified" — it is absent. */
   fingerprint: string | null;
   /** § 11.4: every identity has one. `default` until somebody moves it, never `null`. */
