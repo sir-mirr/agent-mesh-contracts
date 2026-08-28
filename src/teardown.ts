@@ -1,5 +1,11 @@
 /**
- * What `POST /api/v1/admin/agents/{identity}/teardown` answers (SPEC § 9.3).
+ * What `DELETE /api/v1/admin/agents/{identity}` answers (SPEC § 9.3).
+ *
+ * **The method is `DELETE` and there is no `/teardown` segment.** This header
+ * said `POST .../teardown` when v0.32.0 was cut, which is not a route the
+ * platform serves — § 9.3's table and `app.delete('/api/v1/admin/agents/:identity')`
+ * agree, and a caller following the old sentence would have got a `404` while
+ * holding types that describe the answer correctly.
  *
  * **A soft delete.** `deleted_at` is set, every key of the identity is revoked,
  * and messages are left alone — hard deletion would make every past signature
