@@ -370,3 +370,184 @@ export const REST_SIGNATURE_FIXTURES: readonly RestSignatureFixture[] = [
     preimageLength: 89,
   },
 ];
+
+/**
+ * One example body per console read route (`src/http-console.ts`).
+ *
+ * **These are recorded answers, not constructed ones.** Every field name and
+ * every null below was read off `packages/http/src/main.ts` in the platform
+ * repository; the values are small and invented, the *shape* is not. A fixture
+ * built by calling the code it checks proves nothing, and a fixture built from
+ * the type checks only that somebody wrote the type twice.
+ *
+ * A non-TypeScript implementation reads these as data to answer one question:
+ * given this path, which key holds the list, and which field names exist.
+ */
+export interface ConsoleResponseFixture {
+  path: string;
+  /** As declared in `CONSOLE_READ_ROUTES`. */
+  envelope: "ok" | "bare" | "status";
+  /** The key holding the list, or `null` for a route that answers a single object. */
+  listKey: string | null;
+  /** Field names a reader has asked for that this route has never sent. */
+  neverSent: readonly string[];
+  body: Record<string, unknown>;
+}
+
+export const CONSOLE_RESPONSE_FIXTURES: readonly ConsoleResponseFixture[] = [
+  {
+    path: "/api/v1/agents",
+    envelope: "bare",
+    listKey: "agents",
+    neverSent: ["status", "identity"],
+    body: {
+      agents: [
+        {
+          id: "lane-a",
+          name: "lane-a",
+          description: null,
+          channel: "native",
+          type: "agent",
+          created_at: "2026-08-01T00:00:00Z",
+          last_seen_at: null,
+          fingerprint: null,
+          tenant: "default",
+        },
+      ],
+    },
+  },
+  {
+    path: "/api/v1/admin/keys/pending",
+    envelope: "ok",
+    listKey: "keys",
+    neverSent: ["pending"],
+    body: {
+      ok: true,
+      keys: [
+        {
+          fingerprint: "sha256:0f1e2d",
+          identity: "lane-a",
+          public_key: "ed25519:AAAA",
+          proposed_at: "2026-08-01T00:00:00Z",
+        },
+      ],
+    },
+  },
+  {
+    path: "/api/v1/admin/pending",
+    envelope: "bare",
+    listKey: "users",
+    neverSent: ["pending", "ok"],
+    body: {
+      users: [
+        {
+          github_login: "someone",
+          github_id: 1,
+          requested_at: "2026-08-01T00:00:00Z",
+          status: "pending",
+        },
+      ],
+    },
+  },
+  {
+    path: "/api/v1/admin/mailbox",
+    envelope: "ok",
+    listKey: "mailboxes",
+    neverSent: ["depth"],
+    body: {
+      ok: true,
+      mailboxes: [{ identity: "lane-a", pending: 2, leased: 1, oldest: "2026-08-01T00:00:00Z" }],
+      total_queued: 2,
+    },
+  },
+  {
+    path: "/api/v1/audit/events",
+    envelope: "ok",
+    listKey: "events",
+    neverSent: ["cursor", "total"],
+    body: {
+      ok: true,
+      events: [
+        {
+          event_id: "01J0000000000000000000000A",
+          schema_version: 1,
+          event_type: "mesh.message.sent",
+          occurred_at: "2026-08-01T00:00:00Z",
+          correlation_id: null,
+          causation_event_id: null,
+          producer_id: null,
+          identity: "lane-a",
+          // `id`, not `identity` — see `ConsoleAuditRecordedBy`.
+          recorded_by: { kind: "hub", id: "hub" },
+          payload: {},
+          payload_digest: "0".repeat(64),
+          integrity: { digest_matches: true },
+          attestation: null,
+          stored_at: "2026-08-01T00:00:01Z",
+          attachments: [],
+        },
+      ],
+      next_cursor: null,
+    },
+  },
+  {
+    path: "/api/v1/admin/groups",
+    envelope: "ok",
+    listKey: "groups",
+    neverSent: ["name", "member_count"],
+    body: {
+      ok: true,
+      tenant: "default",
+      groups: [
+        {
+          tenant: "default",
+          group_id: "default",
+          description: null,
+          created_at: "2026-08-01T00:00:00Z",
+          created_by: "system",
+          members: ["lane-a"],
+        },
+      ],
+      egress: [
+        {
+          tenant: "default",
+          from_group: "default",
+          to_group: "default",
+          granted_by: "system",
+          granted_at: "2026-08-01T00:00:00Z",
+        },
+      ],
+    },
+  },
+  {
+    path: "/api/v1/health",
+    envelope: "status",
+    listKey: null,
+    neverSent: ["ok"],
+    body: {
+      status: "ok",
+      version: "0.2.0",
+      agent_count: 1,
+      uptime: 0,
+      sign_in: { local: true, github: false },
+    },
+  },
+  {
+    path: "/api/v1/admin/telemetry/behaviour",
+    envelope: "ok",
+    listKey: null,
+    neverSent: ["status"],
+    body: {
+      ok: true,
+      counting_since: null,
+      pending_keys: { value: 0 },
+      pending_users: { value: 0 },
+      oldest_pending_user_ms: { value: null, unavailable: "the hub did not answer" },
+      oldest_pending_ms: { value: null, unavailable: "the hub did not answer" },
+      signature_refusals: { value: null, unavailable: "the hub did not answer" },
+      rate_limited: { value: null, unavailable: "the hub did not answer" },
+      egress_refusals: { value: null, unavailable: "the hub did not answer" },
+      accepted: { value: null, unavailable: "the hub did not answer" },
+    },
+  },
+];

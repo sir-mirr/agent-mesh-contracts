@@ -16,5 +16,6 @@ export * from "./registry";
 export * from "./schedule";
 export * from "./signature";
 export * from "./teardown";
+export * from "./http-console";
 export * from "./tool-contract";
 export * from "./e2e-scenarios";
