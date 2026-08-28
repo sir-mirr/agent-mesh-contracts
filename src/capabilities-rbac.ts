@@ -71,6 +71,28 @@ export const CAPABILITY = {
    */
   SOURCE_READ: "source.read",
   /**
+   * See which `once` reminders the scheduler is holding (SPEC § 3.3, D-810).
+   *
+   * A held reminder is silent: with no route, "nothing is held" and "something
+   * is held and nobody can see it" are the same view, and the second is how a
+   * one-shot that mattered goes undelivered without anybody being told.
+   */
+  REMINDER_READ_HELD: "reminder.read.held",
+  /**
+   * Decide a held slot — replay it once, or skip it for good (D-810).
+   *
+   * **Separate from reading the list, and that separation is the point.**
+   * `replay` sends the reminder's original content now; `skip` means it never
+   * arrives. Both are actions on somebody else's mailbox, and an operator who
+   * may see that a reminder is waiting is not thereby one who may decide what
+   * happens to it — the same line § 11 draws between a queue's depth and its
+   * contents.
+   *
+   * Starts held by nobody, like `tenant.read.stats`. Widening later is one
+   * grant; narrowing is taking back something already used.
+   */
+  REMINDER_DECIDE: "reminder.decide",
+  /**
    * Admit a **person** to the platform, or refuse them (§ 9.1's approval
    * queue).
    *

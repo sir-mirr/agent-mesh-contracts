@@ -112,6 +112,38 @@ export const HTTP_ADMIN_ERROR = {
    * permission it already has.
    */
   NO_SUCH_TENANT: "NO_SUCH_TENANT",
+  /**
+   * `POST /api/v1/admin/reminders/overdue/{id}/decide`, the decision is
+   * neither `replay` nor `skip` — or the body is not JSON at all, or names no
+   * `scheduled_at`. 400. Permanent for that request.
+   *
+   * One code for the whole shape of the request rather than one per field: a
+   * console renders the `error` string beside the form either way, and a
+   * caller does the same thing — fix the request — for all of them.
+   */
+  INVALID_DECISION: "INVALID_DECISION",
+  /**
+   * The same route, `approval_ref` missing its `APPROVED:` prefix or carrying
+   * nothing after it. 400. Permanent for that request.
+   *
+   * Separate from `INVALID_DECISION` because it is not a malformed request —
+   * it is a well-formed one that records no reason. A held reminder is
+   * released into somebody else's mailbox, and `APPROVED:` alone is a decision
+   * whose justification nobody can read back. The prefix rule is the
+   * scheduler's (`overdueApprovalPrefix`); the emptiness after it is this
+   * surface's, because the scheduler never sees a request.
+   */
+  EMPTY_APPROVAL_REF: "EMPTY_APPROVAL_REF",
+  /**
+   * The same route, naming a reminder and slot the scheduler is not holding.
+   * 404. Permanent — a slot that was never held does not become held later.
+   *
+   * **404 rather than 409**, because the subject of the request does not
+   * exist. Answering `ok` instead would tell an operator a reminder had been
+   * released when nothing was, and the row it wrote would be one the scheduler
+   * never reads.
+   */
+  NO_SUCH_HOLD: "NO_SUCH_HOLD",
 } as const;
 
 export type HttpAdminErrorCode = (typeof HTTP_ADMIN_ERROR)[keyof typeof HTTP_ADMIN_ERROR];

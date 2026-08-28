@@ -1,6 +1,6 @@
 {
   "name": "@agent-mesh/contracts",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "description": "Executable wire contract for Agent Mesh \u2014 types, constants and cross-implementation fixtures.",
   "license": "MIT",
   "type": "module",
