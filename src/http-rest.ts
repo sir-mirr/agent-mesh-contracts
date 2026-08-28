@@ -1,5 +1,5 @@
 /**
- * What the seven read routes of the admin console answer (SPEC § 9.1, § 11).
+ * What the eight routes the admin console reads answer (SPEC § 9.1, § 11).
  *
  * ## Why these are here rather than in the console
  *
@@ -16,6 +16,20 @@
  * sides of the wire at once. A field the route stops sending stops compiling in
  * the screen that reads it, which is the only moment either half is cheap to
  * fix.
+ *
+ * ## Why the types say `Rest` and the two lists say `CONSOLE`
+ *
+ * The shapes belong to the surface — SPEC § 9 is "HTTP REST contract", and this
+ * package already spells that surface `Rest` in `restSignaturePreimage` and
+ * `REST_SIGNATURE_FIXTURES`. The server produces these bodies; naming a type
+ * after the client that happens to read it would make
+ * `packages/http/src/behaviour-metrics.ts` import "the console's" metrics from
+ * the module that defines what it itself emits.
+ *
+ * `CONSOLE_READ_ROUTES` and `CONSOLE_FIELDS_THAT_DO_NOT_EXIST` keep the other
+ * word because they are not about the surface: § 9.1 has many more routes than
+ * these eight, and what selects these eight is that the console reads them —
+ * as is the list of names it asked for and did not get.
  *
  * ## These describe the answer, not the intent
  *
@@ -42,7 +56,7 @@
  * its own name. The console renames it on arrival, which is a mapping, not a
  * disagreement — but a reader of the raw body needs the server's name.
  */
-export interface ConsoleAgentRow {
+export interface RestAgentRow {
   id: string;
   name: string;
   description: string | null;
@@ -67,8 +81,8 @@ export interface ConsoleAgentRow {
 }
 
 /** The `200` body of `GET /api/v1/agents`. */
-export interface ConsoleAgentListResponse {
-  agents: ConsoleAgentRow[];
+export interface RestAgentListResponse {
+  agents: RestAgentRow[];
 }
 
 /**
@@ -77,7 +91,7 @@ export interface ConsoleAgentListResponse {
  * Narrower than the store's row on purpose: the route projects four fields and
  * does not send the rest of `agent_keys`.
  */
-export interface ConsoleKeyProposal {
+export interface RestKeyProposal {
   fingerprint: string;
   identity: string;
   public_key: string;
@@ -92,9 +106,9 @@ export interface ConsoleKeyProposal {
  * response could not tell which question it had asked — and the wrong one
  * answers an honest empty array.
  */
-export interface ConsoleKeyProposalsResponse {
+export interface RestKeyProposalsResponse {
   ok: true;
-  keys: ConsoleKeyProposal[];
+  keys: RestKeyProposal[];
 }
 
 /**
@@ -102,7 +116,7 @@ export interface ConsoleKeyProposalsResponse {
  *
  * The route sends the stored row as it is, so these are the table's columns.
  */
-export interface ConsolePendingAdmission {
+export interface RestPendingAdmission {
   github_login: string;
   github_id: number;
   /**
@@ -128,15 +142,15 @@ export interface ConsolePendingAdmission {
  * **`users`, and no `ok`.** The other half of D-689: this queue says who is
  * waiting to be admitted, the key queue says which keys are waiting to be
  * approved, and neither may answer under the shared name. The missing `ok` is
- * the server's, not an omission here — see the note on `ConsoleHealthResponse`
+ * the server's, not an omission here — see the note on `RestHealthResponse`
  * about which routes carry one.
  */
-export interface ConsolePendingAdmissionsResponse {
-  users: ConsolePendingAdmission[];
+export interface RestPendingAdmissionsResponse {
+  users: RestPendingAdmission[];
 }
 
 /** One identity's queue, from `GET /api/v1/admin/mailbox`. */
-export interface ConsoleMailboxSummary {
+export interface RestMailboxSummary {
   identity: string;
   /** Messages with `status = 'pending'` addressed to this identity. */
   pending: number;
@@ -156,9 +170,9 @@ export interface ConsoleMailboxSummary {
  * than a sum of the grouped rows: the two agree only while nothing limits the
  * grouping.
  */
-export interface ConsoleMailboxResponse {
+export interface RestMailboxResponse {
   ok: true;
-  mailboxes: ConsoleMailboxSummary[];
+  mailboxes: RestMailboxSummary[];
   total_queued: number;
 }
 
@@ -176,7 +190,7 @@ export interface ConsoleMailboxResponse {
  * contract that renamed the field to match the other one would make the
  * disagreement compile instead of making it visible.
  */
-export interface ConsoleAuditRecordedBy {
+export interface RestAuditRecordedBy {
   kind: string;
   id: string | null;
 }
@@ -197,7 +211,7 @@ export interface ConsoleAuditRecordedBy {
  * type either way, which is the § 11 privacy boundary rather than a different
  * response.
  */
-export interface ConsoleAuditEvent {
+export interface RestAuditEvent {
   event_id: string;
   schema_version: number;
   event_type: string;
@@ -206,13 +220,13 @@ export interface ConsoleAuditEvent {
   causation_event_id: string | null;
   producer_id: string | null;
   identity: string;
-  recorded_by: ConsoleAuditRecordedBy;
+  recorded_by: RestAuditRecordedBy;
   payload: unknown;
   payload_digest: string;
   integrity: { digest_matches: boolean };
   attestation: unknown;
   stored_at: string;
-  attachments: ConsoleAuditAttachment[];
+  attachments: RestAuditAttachment[];
 }
 
 /**
@@ -222,7 +236,7 @@ export interface ConsoleAuditEvent {
  * `./audit` carries one and this projection does not, so a reader of this
  * response has the reference without its type.
  */
-export interface ConsoleAuditAttachment {
+export interface RestAuditAttachment {
   blob_key: string;
   sha256: string;
   size: number;
@@ -235,9 +249,9 @@ export interface ConsoleAuditAttachment {
  * `next_cursor` is `null` on the last page — not absent, so a reader cannot
  * mistake "no more" for "the server forgot to say".
  */
-export interface ConsoleAuditEventsResponse {
+export interface RestAuditEventsResponse {
   ok: true;
-  events: ConsoleAuditEvent[];
+  events: RestAuditEvent[];
   next_cursor: string | null;
 }
 
@@ -249,11 +263,11 @@ export interface ConsoleAuditEventsResponse {
  * names their own. Deleted tenants are included, because their egress rules
  * still decide sends.
  */
-export interface ConsoleGroupsResponse {
+export interface RestGroupsResponse {
   ok: true;
   tenant: string;
-  groups: ConsoleGroupRow[];
-  egress: ConsoleEgressRow[];
+  groups: RestGroupRow[];
+  egress: RestEgressRow[];
 }
 
 /**
@@ -263,7 +277,7 @@ export interface ConsoleGroupsResponse {
  * identity list, and for the `default` group it includes identities nobody has
  * placed anywhere — being unplaced is what puts them there.
  */
-export interface ConsoleGroupRow {
+export interface RestGroupRow {
   tenant: string;
   group_id: string;
   description: string | null;
@@ -281,7 +295,7 @@ export interface ConsoleGroupRow {
  * tenant-scoped response that omitted it was unambiguous only because there was
  * one tenant in it.
  */
-export interface ConsoleEgressRow {
+export interface RestEgressRow {
   tenant: string;
   from_group: string;
   to_group: string;
@@ -303,7 +317,7 @@ export interface ConsoleEgressRow {
  * "nobody can" — the admission queue answers an empty list for both, and its
  * only writer is the GitHub callback.
  */
-export interface ConsoleHealthResponse {
+export interface RestHealthResponse {
   status: string;
   version: string;
   /** Identities not soft-deleted (§ 9.3). A torn-down identity is not counted. */
@@ -320,7 +334,7 @@ export interface ConsoleHealthResponse {
  * `value: null` with an `unavailable` string is a metric nobody could read; a
  * `0` in its place is a measurement that says the thing did not happen.
  */
-export interface ConsoleMetric {
+export interface RestMetric {
   value: number | null;
   unavailable?: string;
 }
@@ -338,20 +352,20 @@ export interface ConsoleMetric {
  * `counting_since` is `null` when the hub did not answer, and the counts it
  * windows are `null` with it: a count without its window is not a metric.
  */
-export interface ConsoleBehaviourMetrics {
+export interface RestBehaviourMetrics {
   counting_since: string | null;
-  pending_keys: ConsoleMetric;
-  pending_users: ConsoleMetric;
-  oldest_pending_user_ms: ConsoleMetric;
-  oldest_pending_ms: ConsoleMetric;
-  signature_refusals: ConsoleMetric;
-  rate_limited: ConsoleMetric;
-  egress_refusals: ConsoleMetric;
-  accepted: ConsoleMetric;
+  pending_keys: RestMetric;
+  pending_users: RestMetric;
+  oldest_pending_user_ms: RestMetric;
+  oldest_pending_ms: RestMetric;
+  signature_refusals: RestMetric;
+  rate_limited: RestMetric;
+  egress_refusals: RestMetric;
+  accepted: RestMetric;
 }
 
 /** The `200` body of `GET /api/v1/admin/telemetry/behaviour`. */
-export interface ConsoleBehaviourResponse extends ConsoleBehaviourMetrics {
+export interface RestBehaviourResponse extends RestBehaviourMetrics {
   ok: true;
 }
 
@@ -374,7 +388,7 @@ export const CONSOLE_READ_ROUTES = [
 ] as const;
 
 /** Envelope shapes in use. `bare` is an object with neither `ok` nor `status`. */
-export type ConsoleEnvelope = (typeof CONSOLE_READ_ROUTES)[number]["envelope"];
+export type RestEnvelope = (typeof CONSOLE_READ_ROUTES)[number]["envelope"];
 
 /**
  * Names these routes have never sent, and what to read instead.

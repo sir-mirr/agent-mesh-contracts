@@ -477,7 +477,7 @@ export const CONSOLE_RESPONSE_FIXTURES: readonly ConsoleResponseFixture[] = [
           causation_event_id: null,
           producer_id: null,
           identity: "lane-a",
-          // `id`, not `identity` — see `ConsoleAuditRecordedBy`.
+          // `id`, not `identity` — see `RestAuditRecordedBy`.
           recorded_by: { kind: "hub", id: "hub" },
           payload: {},
           payload_digest: "0".repeat(64),

@@ -14,7 +14,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { CONSOLE_RESPONSE_FIXTURES } from "../fixtures/index";
-import { CONSOLE_FIELDS_THAT_DO_NOT_EXIST, CONSOLE_READ_ROUTES } from "./http-console";
+import { CONSOLE_FIELDS_THAT_DO_NOT_EXIST, CONSOLE_READ_ROUTES } from "./http-rest";
 
 describe("the console read routes", () => {
   test("the table and the fixtures cover the same paths", () => {
