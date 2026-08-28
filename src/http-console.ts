@@ -326,13 +326,19 @@ export interface ConsoleMetric {
 }
 
 /**
- * The `200` body of `GET /api/v1/admin/telemetry/behaviour`.
+ * The eight behaviour metrics, without the envelope.
  *
- * `counting_since` is `null` when the hub did not answer, and the three counts
- * it windows are `null` with it: a count without its window is not a metric.
+ * Separate from the response so both halves of the wire can take the same
+ * declaration: the server shapes this object and spreads it under `ok: true`,
+ * and the console reads it back. It was written twice —
+ * `packages/http/src/behaviour-metrics.ts` and the console's `telemetry.ts` —
+ * and two copies of eight field names is eight chances for one of them to be
+ * renamed alone.
+ *
+ * `counting_since` is `null` when the hub did not answer, and the counts it
+ * windows are `null` with it: a count without its window is not a metric.
  */
-export interface ConsoleBehaviourResponse {
-  ok: true;
+export interface ConsoleBehaviourMetrics {
   counting_since: string | null;
   pending_keys: ConsoleMetric;
   pending_users: ConsoleMetric;
@@ -342,6 +348,11 @@ export interface ConsoleBehaviourResponse {
   rate_limited: ConsoleMetric;
   egress_refusals: ConsoleMetric;
   accepted: ConsoleMetric;
+}
+
+/** The `200` body of `GET /api/v1/admin/telemetry/behaviour`. */
+export interface ConsoleBehaviourResponse extends ConsoleBehaviourMetrics {
+  ok: true;
 }
 
 /**
